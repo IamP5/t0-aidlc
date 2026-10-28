@@ -38,6 +38,11 @@ def do(kb_dir, fn, *a, **kw):
     return res
 
 
+def on(kb, branch):
+    """The KB as read from a knowledge branch's worktree, `<kb>.wt/<branch>`."""
+    return KB.open(kb.parent / f"{kb.name}.wt" / branch)
+
+
 def approve(kb, branch):
     git(kb, "switch", "-q", "main")
     git(kb, "merge", "-q", "--no-ff", branch, "-m", f"merge {branch}")
@@ -105,15 +110,31 @@ def test_idea_ids_are_reserved_across_branches_and_titles_dedup(tmp_path):
     assert isinstance(dup, Refusal) and "IDEA-0002" in dup.reasons_pt[0]
 
 
+def test_two_sessions_reserving_at_once_get_different_ids(tmp_path):
+    import threading
+
+    kb = build(tmp_path)
+    first = KB.open(kb)
+    a = first.new("idea", title="Primeira")
+    second = {}
+    t = threading.Thread(target=lambda: second.update(p=do(kb, "new", "idea", title="Segunda")))
+    t.start()
+    t.join(0.5)
+    assert t.is_alive()
+    first.apply(a)
+    t.join(10)
+    assert a.knowledge.puts[0].path == "/ideas/IDEA-0001.md" and second["p"].knowledge.puts[0].path == "/ideas/IDEA-0002.md"
+
+
 def test_rapida_free_text_creates_idea_bet_and_slice_on_one_branch(tmp_path):
     kb = build(tmp_path)
     p = do(kb, "new", "bet", track="rapida", ref="Corrigir fuso", product="p", repo="api")
     assert p.knowledge.branch == "bet/BET-002/ana"
     paths = sorted(d.path for d in p.knowledge.puts)
     assert paths == ["/ideas/IDEA-0001.md", "/products/p/bets/BET-002/bet.md", "/products/p/bets/BET-002/slices/01-corrigir-fuso.md"]
-    v = KB.open(kb).view()
+    v = on(kb, "bet/BET-002/ana").view()
     assert v.resolve(Ref("IDEA-0001")).state == "promoted" and v.resolve(Ref("BET-002"))["track"] == "rapida"
-    assert git(kb, "status", "--porcelain") == ""
+    assert git(kb, "status", "--porcelain") == "" and git(kb, "branch", "--show-current") == "main"
 
 
 def test_new_bet_proposes_the_pod_bet_owner_as_decider(tmp_path):
@@ -123,7 +144,7 @@ def test_new_bet_proposes_the_pod_bet_owner_as_decider(tmp_path):
     git(kb, "add", "-A")
     git(kb, "commit", "-qm", "bia")
     do(kb, "new", "bet", track="rapida", ref="Corrigir fuso", product="p", repo="api")
-    assert KB.open(kb).view().resolve(Ref("BET-002"))["decision_by"] == "human:bia"
+    assert KB.open(kb).get(Ref("BET-002"))["decision_by"] == "human:bia"
 
 
 def test_bet_track_needs_a_prototyped_idea(tmp_path):
@@ -147,9 +168,10 @@ def test_adr_accept_opens_a_knowledge_pr_to_the_deciders(tmp_path):
     assert KB.open(kb).get(Ref("ADR-0001")).state == "proposed"
     p = do(kb, "adr_accept", "ADR-0001")
     assert p.knowledge.reviewers == ("human:ana",) and git(kb, "status", "--porcelain") == ""
-    adr = KB.open(kb).get(Ref("ADR-0001"))
+    assert KB.open(kb).get(Ref("ADR-0001")).state == "proposed"
+    adr = on(kb, p.knowledge.branch).get(Ref("ADR-0001"))
     assert adr.state == "accepted" and adr["decided_at"] == NOW and "verified" not in adr.doc.frontmatter
-    assert "LANE.state-transition" not in KB.open(kb).check(Level.L2, changed_from="main").rules()
+    assert "LANE.state-transition" not in on(kb, p.knowledge.branch).check(Level.L2, changed_from="main").rules()
     approve(kb, p.knowledge.branch)
     assert "já está `accepted`" in KB.open(kb).adr_accept("ADR-0001").messages_pt[0]
     assert isinstance(KB.open(kb).adr_accept("BET-001"), Refusal)
@@ -186,7 +208,7 @@ def test_log_spools_a_record_and_kill_opens_the_decision_pr(tmp_path):
     assert KB.open(kb).view().pending == 1
     k = do(kb, "record", EventKind.KILL, "ninguém quer", bet=Ref("BET-001"))
     assert k.records and k.knowledge.branch == "bet/BET-001/ana"
-    bet = KB.open(kb).get(Ref("BET-001"))
+    bet = on(kb, "bet/BET-001/ana").get(Ref("BET-001"))
     assert bet.state == "killed" and "ninguém quer" in bet.doc.body
 
 
@@ -267,9 +289,9 @@ def test_bet_ship_freezes_spec_and_updates_living_spec(tmp_path):
     assert isinstance(KB.open(kb).bet_ship("BET-001"), Refusal)
     do(kb, "ci", "PAY-7", pr="api#9", state="merged", approvals=["human:bia"])
     p = do(kb, "bet_ship", "BET-001")
-    v = KB.open(kb).view()
+    v = on(kb, "bet/BET-001/ana").view()
     assert v.resolve(Ref("BET-001")).state == "shipped" and v.resolve(Ref(f"{BETF}/spec")).state == "frozen"
-    assert "### BET-001" in (kb / "products/p/product.md").read_text()
+    assert "### BET-001" in (kb.parent / "kb.wt/bet/BET-001/ana/products/p/product.md").read_text()
     assert KB.open(kb).bet_ship("BET-001").empty
 
 
@@ -302,11 +324,43 @@ def test_propose_commits_hand_edits_on_the_bet_branch_and_refuses_derived_edits(
     assert isinstance(r, Refusal) and "LANE.derived-untouched" in r.reasons_pt[0]
 
 
+def test_propose_finds_the_worktree_with_edits_and_refuses_to_guess_between_main_and_a_branch(tmp_path):
+    kb = build(tmp_path)
+    do(kb, "gate", "aposta", Ref("BET-001"))
+    wt = kb.parent / "kb.wt/bet/BET-001/ana"
+    bet = wt / f"{BETF}/bet.md"
+    bet.write_text(bet.read_text() + "\nMais hipótese.\n")
+    p = do(kb, "propose", "Hipótese mais clara")
+    assert p.knowledge.branch == "bet/BET-001/ana" and p.messages_pt == (f"incluído: /{BETF}/bet.md",)
+    assert git(wt, "status", "--porcelain") == "" and "Mais hipótese." in git(kb, "show", f"bet/BET-001/ana:{BETF}/bet.md")
+    spec = kb / f"{BETF}/spec.md"
+    spec.write_text(spec.read_text() + "\nNo main.\n")
+    r = KB.open(kb).propose("no main")
+    assert isinstance(r, Refusal) and str(wt) in r.reasons_pt[0] and "No main." in spec.read_text()
+    assert "já está `active`" in KB.open(kb).gate("aposta", Ref("BET-001")).messages_pt[0]
+    s = KB.open(kb).new("slice", ref="BET-001", title="Outro", repo="api")
+    assert isinstance(s, Refusal) and f"{BETF}/spec.md" in s.reasons_pt[0] and str(wt) in s.reasons_pt[0]
+    assert git(kb, "branch", "--show-current") == "main"
+
+
+def test_propose_from_inside_a_worktree_commits_on_its_branch(tmp_path, monkeypatch):
+    kb = build(tmp_path)
+    do(kb, "new", "harness", pattern="esquece fuso")
+    wt = kb.parent / "kb.wt/kb/ana/HI-0001"
+    (wt / "glossary/fuso.md").write_text((kb / "glossary/limite.md").read_text().replace("limite", "fuso"))
+    do(kb, "new", "idea", title="Outra")
+    (kb.parent / "kb.wt/kb/ana/IDEA-0001/glossary/outra.md").write_text("x")
+    assert "mais de um worktree" in KB.open(kb).propose("qual?").reasons_pt[0]
+    monkeypatch.chdir(wt / "glossary")
+    p = do(None, "propose", "Glossário de fuso")
+    assert p.knowledge.branch == "kb/ana/HI-0001" and "glossary/fuso.md" in git(kb, "show", "--stat", "kb/ana/HI-0001")
+
+
 def test_gate_writes_state_but_not_verified_into_the_decision_pr(tmp_path):
     kb = build(tmp_path)
     p = do(kb, "gate", "aposta", Ref("BET-001"))
     assert p.knowledge.branch == "bet/BET-001/ana" and p.knowledge.reviewers == ("human:ana",)
-    bet = KB.open(kb).get(Ref("BET-001"))
+    bet = on(kb, "bet/BET-001/ana").get(Ref("BET-001"))
     assert bet.state == "active" and bet["status"] == "stable" and "verified" not in bet.doc.frontmatter
     assert isinstance(KB.open(kb).gate("aposta", Ref("BET-001"), ci=True), Plan)
     assert KB.open(kb).gate("aposta", Ref("BET-001")).empty

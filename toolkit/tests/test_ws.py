@@ -132,6 +132,21 @@ def test_bet_use_writes_marker_idempotently(workspace):
     assert isinstance(ws.bet_use(KB, w, "BET-999"), Refusal)
 
 
+@pytest.mark.parametrize("isolated", [None, "BET-042"])
+def test_bet_use_refuses_a_bet_of_another_product(workspace, isolated):
+    other = FakeKB([*KB.view().concepts.values(),
+                    _c("/products/paco/bets/BET-012/bet.md", {"type": "Bet", "title": "Paco"}, {"state": "active"}),
+                    _c("/products/paco/bets/BET-012/slices/01-x.md", {"type": "Slice", "repo": "api"}, {"jira": "PAC-7"})])
+    data = json.loads((workspace / ".t0/workspace.json").read_text())
+    (workspace / ".t0/workspace.json").write_text(json.dumps({**data, "isolated_bet": isolated}))
+    w = ws.locate(workspace)
+    for ref in ("BET-012", "PAC-7"):
+        r = ws.bet_use(other, w, ref)
+        assert isinstance(r, Refusal) and "BET-012 é do produto paco" in r.reasons_pt[0]
+        assert str(workspace.parent / "paco") in r.reasons_pt[0]
+    assert not (workspace / ".t0/bet.json").exists()
+
+
 def test_slice_start_creates_branch_then_noop(workspace):
     w = ws.locate(workspace)
     plan = ws.slice_start(KB, w, "PAY-131")

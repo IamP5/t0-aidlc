@@ -244,7 +244,8 @@ def write_if_changed(path: Path, text: str) -> bool:
 
 
 def bet_use(kb: Any, ws: Workspace, ref: str) -> Plan | Refusal:
-    """`t0 bet use BET-042|PAY-123`: resolve via the KB, write .t0/bet.json. Re-running is a no-op."""
+    """`t0 bet use BET-042|PAY-123`: resolve via the KB, write .t0/bet.json. Re-running is a no-op.
+    A bet of another product is refused: its card would mix that bet with this workspace's repos."""
     concept = kb.get(Ref(ref))
     if concept is None:
         return Refusal((f"{ref} não encontrado no KB",))
@@ -253,13 +254,17 @@ def bet_use(kb: Any, ws: Workspace, ref: str) -> Plan | Refusal:
     except ValueError:
         return Refusal((f"{ref} não é uma bet nem um slice de bet",))
     bet_id = folder.rsplit("/", 1)[1]
+    product = folder.split("/")[2]
+    if product != ws.product:
+        return Refusal((f"{bet_id} é do produto {product}, e este workspace é de {ws.product}; "
+                        f"abra {ws.root.parent / product} (ou rode `t0 bet use {ref}` lá)",))
     slices = sorted((c for c in kb.view().concepts.values()
                      if _fm(c).get("type") == "Slice" and c.doc.path.value.startswith(folder + "/slices/")),
                     key=lambda c: c.doc.path.value)
     bet_c = next((c for c in kb.view().concepts.values() if c.doc.path.value == folder + "/bet.md"), None)
     story = ref if JIRA_KEY_RE.fullmatch(ref) and not BET_ID_RE.match(ref) and _fm(concept).get("type") == "Slice" else None
     data = {
-        "schema": 1, "product": folder.split("/")[2], "bet": bet_id,
+        "schema": 1, "product": product, "bet": bet_id,
         "jira": _fm(bet_c).get("jira") if bet_c else None, "kb_path": folder,
         "repos": sorted({str(_fm(c).get("repo")) for c in slices if _fm(c).get("repo")}),
         "stories": [k for k in (_fm(c).get("jira") for c in slices) if k],

@@ -1,3 +1,5 @@
+import subprocess
+
 import pytest
 
 from t0.check import Level
@@ -37,10 +39,10 @@ def test_render_materializes_records_and_converges(tmp_path):
 
 
 def test_render_refuses_off_main(tmp_path):
-    from t0.write import ApplyError, switch
+    from t0.write import ApplyError
 
     kb = build(tmp_path)
-    switch(kb, "kb/ana/x")
+    subprocess.run(["git", "-C", str(kb), "switch", "-qc", "kb/ana/x"], check=True)
     k = KB.open(kb)
     with pytest.raises(ApplyError):
         k.apply(k.render(), mode=ApplyMode.KB_RENDER)

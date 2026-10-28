@@ -450,21 +450,51 @@ def session_start(ev: HookEvent) -> HookReply:
     return HookReply.inject_(text)
 
 
+def _bet_homes(cwd: Path, keys: list[str]) -> dict[str, tuple[str, str]]:
+    """key -> (bet, product) for the keys the KB resolves; local read, no network, no worktree scan."""
+    from .kb import KB, locate
+    from .view import Ref
+
+    try:
+        view = KB.open(locate(cwd)).view()
+    except Exception:
+        return {}
+    out = {}
+    for k in keys:
+        c = view.resolve(Ref(k))
+        bet = c if c is not None and c["type"] == "Bet" else (view.bet_of(c) if c is not None else None)
+        if bet is not None:
+            out[k] = (bet.kb_id, bet.path.split("/")[2])
+    return out
+
+
 def prompt_submit(ev: HookEvent) -> HookReply:
+    """Warns (never blocks) on keys of another bet: resolved in the KB, or unknown keys of the bet's Jira project."""
     from . import ws
 
     marker = ws.read_bet_marker(ev.cwd)
     if not ev.prompt or marker is None:
         return HookReply.ok()
     data = marker[1]
+    active = data.get("bet")
     own = {data.get("jira"), data.get("active_story"), *(data.get("stories") or [])} - {None}
     projects = {k.split("-")[0] for k in own}
-    foreign = sorted({m.group(0) for m in ws.JIRA_KEY_RE.finditer(ev.prompt)
-                      if m.group(1) in projects and m.group(0) not in own})
-    if not foreign:
+    keys = sorted({m.group(0) for m in ws.JIRA_KEY_RE.finditer(ev.prompt)} - own - {active})
+    homes = _bet_homes(ev.cwd, keys) if keys else {}
+    notes, products = [], set()
+    for k in keys:
+        if k in homes and homes[k][0] != active:
+            notes.append(f"{k} (produto {homes[k][1]})" if k == homes[k][0]
+                         else f"{k} ({homes[k][0]}, produto {homes[k][1]})")
+            products.add(homes[k][1])
+        elif k not in homes and k.split("-")[0] in projects:
+            notes.append(k)
+    if not notes:
         return HookReply.ok()
-    return HookReply.say(f"t0: {', '.join(foreign)} não é da bet ativa {data.get('bet')}; "
-                         f"se mudou de bet rode `t0 bet use {foreign[0]}`")
+    other = sorted(products - {data.get("product")}) if data.get("product") else []
+    hint = (f"é de outro produto: abra o workspace de {', '.join(other)}" if other
+            else f"se mudou de bet rode `t0 bet use {notes[0].split()[0]}`")
+    return HookReply.say(f"t0: {', '.join(notes)} não é da bet ativa {active}; {hint}")
 
 
 def stop(ev: HookEvent) -> HookReply:

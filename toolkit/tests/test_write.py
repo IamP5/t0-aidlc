@@ -65,25 +65,67 @@ def test_record_with_known_dedup_is_skipped(tmp_path):
     assert out.spooled == () and out.skipped == (r.dedup,)
 
 
-def test_knowledge_change_is_a_branch_from_main_with_one_commit(tmp_path):
+def wt(kb, branch):
+    return kb.parent / "kb.wt" / branch
+
+
+def head(kb):
+    return git(kb, "branch", "--show-current").strip()
+
+
+def knowledge(branch, path, text="---\ntype: X\n---\n", title="Título"):
+    return W.Plan(knowledge=W.KnowledgeChange(branch, title, "corpo", (W.RenderedDoc(path, text),)))
+
+
+def test_knowledge_change_is_a_branch_from_main_with_one_commit_in_its_worktree(tmp_path):
     kb = build(tmp_path)
-    k = W.KnowledgeChange("kb/ana/x", "Título", "corpo", (W.RenderedDoc("/glossary/novo.md", "---\ntype: X\n---\n"),))
-    out = W.apply(W.Plan(knowledge=k), mode=W.ApplyMode.LOCAL, kb_dir=kb)
-    assert out.branch == "kb/ana/x" and out.commit and out.pr_url is None
-    assert git(kb, "log", "--format=%s", "-1").strip() == "Título"
-    same = W.apply(W.Plan(knowledge=k), mode=W.ApplyMode.LOCAL, kb_dir=kb)
-    assert same.commit is None
+    out = W.apply(knowledge("kb/ana/x", "/glossary/novo.md"), mode=W.ApplyMode.LOCAL, kb_dir=kb)
+    assert out.branch == "kb/ana/x" and out.commit and out.pr_url is None and out.tree == wt(kb, "kb/ana/x").resolve()
+    assert git(kb, "log", "--format=%s", "-1", "kb/ana/x").strip() == "Título"
+    assert head(kb) == "main" and not (kb / "glossary/novo.md").exists() and (out.tree / "glossary/novo.md").is_file()
+    same = W.apply(knowledge("kb/ana/x", "/glossary/novo.md"), mode=W.ApplyMode.LOCAL, kb_dir=kb)
+    assert same.commit is None and same.tree == out.tree
 
 
-def test_switch_refuses_dirty_tree_off_main(tmp_path):
+def test_two_sessions_on_one_kb_clone_never_share_a_work_tree(tmp_path):
     kb = build(tmp_path)
-    W.switch(kb, "kb/ana/a")
-    (kb / "glossary/limite.md").write_text("mudou")
-    with pytest.raises(W.ApplyError, match="suja"):
-        W.switch(kb, "kb/ana/b")
+    a = W.apply(knowledge("bet/BET-001/ana", "/products/p/bets/BET-001/notas.md", "a\n"), mode=W.ApplyMode.LOCAL, kb_dir=kb)
+    b = W.apply(knowledge("kb/ana/IDEA-0009", "/ideas/IDEA-0009.md", "b\n"), mode=W.ApplyMode.LOCAL, kb_dir=kb)
+    assert head(kb) == "main" and git(kb, "status", "--porcelain") == ""
+    assert a.tree != b.tree and head(a.tree) == "bet/BET-001/ana" and head(b.tree) == "kb/ana/IDEA-0009"
+    assert (a.tree / "products/p/bets/BET-001/notas.md").is_file() and not (a.tree / "ideas/IDEA-0009.md").exists()
+    assert (b.tree / "ideas/IDEA-0009.md").is_file() and not (b.tree / "products/p/bets/BET-001/notas.md").exists()
+    listed = git(kb, "worktree", "list")
+    assert "[bet/BET-001/ana]" in listed and "[kb/ana/IDEA-0009]" in listed
 
 
-def test_switch_from_origin_main_never_writes_git_config(tmp_path):
+def test_checkout_reuses_the_worktree_keeps_edits_and_restarts_a_merged_branch(tmp_path):
+    kb = build(tmp_path)
+    first = W.checkout(kb, "kb/ana/a")
+    (first.path / "glossary/limite.md").write_text("mudou")
+    again = W.checkout(kb, "kb/ana/a")
+    assert again == first and (again.path / "glossary/limite.md").read_text() == "mudou"
+    git(first.path, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "edição")
+    git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "kb/ana/a", "-m", "aprova")
+    (kb / "glossary/novo.md").write_text("x")
+    git(kb, "add", "-A")
+    git(kb, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main andou")
+    restarted = W.checkout(kb, "kb/ana/a")
+    assert restarted.path == first.path and (restarted.path / "glossary/novo.md").is_file()
+    assert git(kb, "rev-parse", "kb/ana/a") == git(kb, "rev-parse", "main") and head(kb) == "main"
+
+
+def test_checkout_refuses_a_stray_folder_and_a_main_clone_left_on_the_branch(tmp_path):
+    kb = build(tmp_path)
+    wt(kb, "kb/ana/x").mkdir(parents=True)
+    with pytest.raises(W.ApplyError, match="não é worktree"):
+        W.checkout(kb, "kb/ana/x")
+    git(kb, "switch", "-qc", "kb/ana/y")
+    with pytest.raises(W.ApplyError, match="clone principal"):
+        W.checkout(kb, "kb/ana/y")
+
+
+def test_checkout_from_origin_main_never_writes_git_config(tmp_path):
     kb = build(tmp_path)
     subprocess.run(["git", "clone", "-q", "--bare", str(kb), str(tmp_path / "origin.git")], check=True)
     git(kb, "remote", "add", "origin", str(tmp_path / "origin.git"))
@@ -91,8 +133,8 @@ def test_switch_from_origin_main_never_writes_git_config(tmp_path):
     git(kb, "switch", "-q", "--detach")
     git(kb, "branch", "-qD", "main")
     config = (kb / ".git/config").read_bytes()
-    W.switch(kb, "kb/ana/x")
-    assert W.current_branch(kb) == "kb/ana/x"
+    co = W.checkout(kb, "kb/ana/x")
+    assert head(co.path) == "kb/ana/x"
     assert (kb / ".git/config").read_bytes() == config
 
 
@@ -101,9 +143,23 @@ def test_derived_change_only_on_main(tmp_path):
     d = W.derived_change((W.RenderedDoc("/log.md", "---\ntype: Log\n---\n"),))
     with pytest.raises(W.ApplyError):
         W.apply(W.Plan(derived=d), mode=W.ApplyMode.LOCAL, kb_dir=kb)
-    W.switch(kb, "kb/ana/x")
+    git(kb, "switch", "-qc", "kb/ana/x")
     with pytest.raises(W.ApplyError, match="só no main"):
         W.apply(W.Plan(derived=d), mode=W.ApplyMode.KB_RENDER, kb_dir=kb)
+
+
+def test_push_skips_while_another_session_holds_the_spool_lock(tmp_path):
+    import fcntl
+
+    kb = build(tmp_path)
+    W.apply(W.Plan(records=(rec(),)), mode=W.ApplyMode.LOCAL, kb_dir=kb)
+    with open(W.spool_dir(kb) / ".push.lock", "a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        applied, msgs = W.push_spool(kb_dir=kb, handle="ana", mode="batch", landed=frozenset())
+    assert msgs == ["push em andamento em outra sessão"] and applied.branch is None
+    assert not W.ref_exists(kb, "refs/heads/rec/ana/2026-10-28")
+    applied, _ = W.push_spool(kb_dir=kb, handle="ana", mode="batch", landed=frozenset())
+    assert applied.branch == "rec/ana/2026-10-28"
 
 
 def test_file_forge_opens_draft_pr_and_records_pr_with_auto_merge(tmp_path, monkeypatch):
@@ -114,7 +170,6 @@ def test_file_forge_opens_draft_pr_and_records_pr_with_auto_merge(tmp_path, monk
     W.apply(W.Plan(knowledge=k), mode=W.ApplyMode.LOCAL, kb_dir=kb)
     prs = json.loads((tmp_path / "forge/prs.json").read_text())
     assert out.pr_url and len(prs) == 1 and prs[0]["draft"] is True and prs[0]["reviewers"] == ["human:bia"]
-    W.switch(kb, "main")
     W.apply(W.Plan(records=(rec(),)), mode=W.ApplyMode.LOCAL, kb_dir=kb)
     W.push_spool(kb_dir=kb, handle="ana", mode="auto", landed=frozenset())
     rp = json.loads((tmp_path / "forge/prs.json").read_text())[1]

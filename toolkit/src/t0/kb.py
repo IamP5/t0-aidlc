@@ -1,12 +1,14 @@
 """The facade. CLI, MCP server, hooks and rituals call only this.
 
 Hides: where the KB is, parse, fold, spool overlay, id reservation, lane routing, gate checks, render.
-Every mutating method returns Plan | Refusal. Knowledge planners first put the KB work tree on the
-change's branch (skipped under dry-run), so the plan is computed from the PR head it will commit to.
-`apply` is the one effect.
+Every mutating method returns Plan | Refusal. Knowledge planners first open the change's branch worktree
+(`W.checkout`, skipped under dry-run) and read from it, so the plan is computed from the PR head it will
+commit to. `root` is the main clone (spool, refs, derived lane); `tree` is where reads happen: the main
+clone, the worktree the cwd is in, or the checkout a planner opened. `apply` is the one effect.
 """
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import subprocess
@@ -122,7 +124,10 @@ def _yaml_value(raw: str) -> Any:
 
 class KB:
     def __init__(self, root: Path, *, source: Source = Source.MAIN_PLUS_SPOOL, dry: bool = False) -> None:
-        self.root = root.resolve()
+        self.tree = root.resolve()
+        self.root = W.main_clone(self.tree) if W.is_git(self.tree) else self.tree
+        self._checkout: W.Checkout | None = None
+        self._ids: Any = None
         self.source = source
         self.dry = dry
         self.handle = handle()
@@ -132,12 +137,16 @@ class KB:
 
     @classmethod
     def open(cls, kb_dir: Path | None = None, *, source: Source = Source.MAIN_PLUS_SPOOL, dry: bool = False) -> "KB":
-        d = kb_dir or (Path(os.environ["T0_KB"]) if os.environ.get("T0_KB") else None) or locate()
+        here = None if kb_dir else locate()
+        d = kb_dir or (Path(os.environ["T0_KB"]) if os.environ.get("T0_KB") else None) or here
         if d is None or not Path(d).is_dir():
             raise KBUnavailable()
         if not _is_kb(Path(d)):
             raise KBUnavailable(f"{d} não é um KB OKF (sem index.md com okf_version). Pare.")
-        return cls(Path(d), source=source, dry=dry)
+        kb = cls(Path(d), source=source, dry=dry)
+        if here is not None and here.resolve() != kb.tree and W.is_git(here) and W.main_clone(here.resolve()) == kb.root:
+            kb.tree = here.resolve()
+        return kb
 
     # ------------------------------------------------------------- read
 
@@ -147,7 +156,7 @@ class KB:
 
     def docs(self) -> list[Document | ParseError]:
         if self._docs is None:
-            self._docs = read_docs(self.root)
+            self._docs = read_docs(self.tree)
         return self._docs
 
     def _spool_docs(self, landed: set[str]) -> list[Document]:
@@ -172,13 +181,35 @@ class KB:
     def reload(self) -> None:
         self._view = self._docs = None
 
-    def sha(self) -> str:
-        if not W.is_git(self.root):
+    def sha(self, tree: Path | None = None) -> str:
+        tree = tree or self.tree
+        if not W.is_git(tree):
             return "worktree"
-        return W.git(self.root, "rev-parse", "--short", "HEAD", check=False) or "worktree"
+        return W.git(tree, "rev-parse", "--short", "HEAD", check=False) or "worktree"
 
     def get(self, ref: Ref) -> Concept | None:
-        return self.view().resolve(ref)
+        """`ref` as a planner will see it. Before a planner opens its checkout, reads move to an open knowledge
+        worktree (edits or commits not yet on main): the one of this person's bet branch for a concept in a bet
+        folder, else the first that holds a `ref` the tree in use lacks."""
+        c = self.view().resolve(ref)
+        if self._checkout is not None or not W.is_git(self.root):
+            return c
+        home = self.tree
+        folder = bet_folder(c.path) if c is not None else None
+        if c is not None and (home != self.root or folder is None):
+            return c
+        branch = self._bet_branch(folder.rsplit("/", 1)[1]) if folder else None
+        for co in W.open_checkouts(self.root):
+            if co.path == home or branch and co.branch != branch:
+                continue
+            self.tree = co.path
+            self.reload()
+            if (found := self.view().resolve(ref)) is not None:
+                return found
+        if self.tree != home:
+            self.tree = home
+            self.reload()
+        return c
 
     def find(self, q: Query) -> list[Hit]:
         hits: list[Hit] = []
@@ -207,15 +238,15 @@ class KB:
         view = fold(good, kb_sha=self.sha())
         changed = base = base_view = None
         if changed_from:
-            if not W.is_git(self.root):
+            if not W.is_git(self.tree):
                 raise ValueError("--changed-from precisa de um KB em git")
-            names = W.git(self.root, "diff", "--name-only", changed_from).splitlines()
-            names += W.git(self.root, "ls-files", "--others", "--exclude-standard").splitlines()
+            names = W.git(self.tree, "diff", "--name-only", changed_from).splitlines()
+            names += W.git(self.tree, "ls-files", "--others", "--exclude-standard").splitlines()
             changed = frozenset("/" + n for n in names if n.endswith(".md") and not n.startswith("."))
             base = {}
-            for n in W.git(self.root, "ls-tree", "-r", "--name-only", changed_from).splitlines():
+            for n in W.git(self.tree, "ls-tree", "-r", "--name-only", changed_from).splitlines():
                 if n.endswith(".md") and not n.startswith("."):
-                    d = parse(BundlePath("/" + n), W.git(self.root, "show", f"{changed_from}:{n}"))
+                    d = parse(BundlePath("/" + n), W.git(self.tree, "show", f"{changed_from}:{n}"))
                     if isinstance(d, Document):
                         base[d.path.value] = d
             base_view = fold(base.values(), kb_sha=changed_from)
@@ -245,24 +276,41 @@ class KB:
 
     # ------------------------------------------------------------- helpers
 
-    def _prepare(self, branch: str) -> Refusal | None:
-        if self.dry:
+    def checkout(self, branch: str) -> Refusal | None:
+        """Open `branch`'s worktree and read from it. Refuses a bet branch while the main clone holds
+        uncommitted edits in that bet's folder: they would stay out of the PR."""
+        if self.dry or not W.is_git(self.root):
             return None
+        m = re.match(r"bet/(BET-\d+)/", branch)
+        stray = [p for p in W.dirty(self.root) if m and f"/bets/{m.group(1)}/" in "/" + p]
+        if stray:
+            return Refusal((f"mudanças sem commit no clone principal do KB ({', '.join(stray)}); mova para o worktree "
+                            f"{W.worktree_root(self.root) / branch} ou descarte, e rode de novo",))
         try:
-            W.switch(self.root, branch)
+            self._checkout = W.checkout(self.root, branch)
         except W.ApplyError as e:
             return Refusal((str(e),))
+        self.tree = self._checkout.path
         self.reload()
         return None
 
     def _branch_here_or(self, fallback: str) -> str:
-        cur = W.current_branch(self.root)
+        cur = W.current_branch(self.tree)
         return cur if cur and cur.startswith(("bet/", "kb/")) else fallback
 
     def _bet_branch(self, bet_id: str) -> str:
         return f"bet/{bet_id}/{self.handle}"
 
+    def _hold_ids(self) -> None:
+        """Ids are one sequence across every branch: hold the KB's id lock from reservation until `apply`
+        commits, so two sessions on one clone never reserve the same number."""
+        if self.dry or self._ids is not None or not W.is_git(self.root):
+            return
+        self._ids = open(self.root / ".git" / "t0-ids.lock", "a")
+        fcntl.flock(self._ids, fcntl.LOCK_EX)
+
     def _next(self, type_name: str, *, folder: str | None = None) -> int:
+        self._hold_ids()
         paths = [d.path.value for d in self.docs()]
         if W.is_git(self.root):
             refs = W.git(self.root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes").splitlines()
@@ -358,7 +406,7 @@ class KB:
             return Refusal((f"já existe {dup.kb_id} com esse título ({dup.state}); use ela",))
         n = self._next("Idea")
         branch = f"kb/{self.handle}/IDEA-{n:04d}"
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         doc = self._idea_doc(n, title, description or title, extra, body)
         return Plan(knowledge=KnowledgeChange(branch, f"Ideia IDEA-{n:04d}: {title}",
@@ -385,14 +433,14 @@ class KB:
         if not title:
             return Refusal(("dê --title ou um texto: `t0 new bet --track rapida \"o que muda\"`",))
         product = product or (str(idea["product"]) if idea and idea["product"] else None) or self._ws_product()
-        if not product or not (self.root / "products" / product).is_dir():
+        if not product or not (self.tree / "products" / product).is_dir():
             return Refusal((f"--product precisa ser uma pasta de /products/ (veio {product!r})",))
         n = self._next("Bet")
         if tr.name == "rapida" and free:
             n_idea = self._next("Idea")
         bet_id = f"BET-{n:03d}"
         branch = self._bet_branch(bet_id)
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         view = self.view()
         idea = view.resolve(Ref(idea.kb_id)) if idea is not None else None
@@ -443,7 +491,7 @@ class KB:
 
             d = ws.detect(Path.cwd())
             ref = d.bet or d.story
-        c = self.view().resolve(Ref(ref)) if ref else None
+        c = self.get(Ref(ref)) if ref else None
         bet = c if c is not None and c["type"] == "Bet" else (self.view().bet_of(c) if c is not None else None)
         return bet if bet is not None else Refusal((f"bet {ref!r} não encontrada no KB",))
 
@@ -454,7 +502,7 @@ class KB:
         if bet["track"] == "rapida":
             return Refusal((f"{bet.kb_id} é da trilha rápida: não tem spec",))
         branch = self._bet_branch(bet.kb_id)
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         bet = self._bet(bet.kb_id)
         if isinstance(bet, Refusal):
@@ -479,7 +527,7 @@ class KB:
         if bet["track"] == "rapida" and self.view().children(bet, "Slice"):
             return Refusal((f"{bet.kb_id} é rápida e já tem o slice único",))
         branch = self._bet_branch(bet.kb_id)
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         bet = self._bet(bet.kb_id)
         if isinstance(bet, Refusal):
@@ -499,7 +547,7 @@ class KB:
             return Refusal(("`t0 new adr` precisa de --title",))
         n = self._next("ADR")
         branch = self._branch_here_or(f"kb/{self.handle}/ADR-{n:04d}")
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         folder = f"/products/{product}/adr" if product else "/methodology/adr"
         spec = REGISTRY.type_named("ADR")
@@ -521,14 +569,14 @@ class KB:
             occ = list(same["occurrences"] or [])
             if not occurrence or occurrence in occ:
                 return Plan(messages_pt=(f"{same.kb_id} já registra esse erro" + (f" e a ocorrência {occurrence}" if occurrence else ""),))
-            if (r := self._prepare(branch)):
+            if (r := self.checkout(branch)):
                 return r
             same = self.view().resolve(Ref(same.kb_id))
             occ = list(same["occurrences"] or []) + [occurrence]
             msg = f"{same.kb_id}: {len(occ)}ª ocorrência" + ("; suba a escada do harness" if len(occ) >= 2 else "")
             return Plan(knowledge=KnowledgeChange(branch, f"{same.kb_id}: nova ocorrência", msg, (self._upd(same, {"occurrences": occ}),)),
                         messages_pt=(msg,))
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         spec = REGISTRY.type_named("Harness Item")
         fm = {"title": title or pattern[:72], "description": description or pattern, "uid": f"hi-{n:04d}", "pattern": pattern,
@@ -540,7 +588,7 @@ class KB:
     # ------------------------------------------------------------- idea prototype
 
     def idea_prototype(self, ref: str, verdict: str, prototype_ref: str | None) -> Plan | Refusal:
-        c = self.view().resolve(Ref(ref))
+        c = self.get(Ref(ref))
         if c is None or c["type"] != "Idea":
             return Refusal((f"{ref} não é uma Idea do KB",))
         if verdict not in ("segue", "ajusta", "mata"):
@@ -550,7 +598,7 @@ class KB:
         if c["verdict"] == verdict and (prototype_ref is None or c["prototype_ref"] == prototype_ref):
             return Plan(messages_pt=(f"{c.kb_id} já tem o veredito {verdict}",))
         branch = self._branch_here_or(f"kb/{self.handle}/{c.kb_id}")
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         c = self.view().resolve(Ref(c.kb_id))
         if c is None:
@@ -567,7 +615,7 @@ class KB:
 
     def adr_accept(self, ref: str) -> Plan | Refusal:
         """`t0 adr accept <ADR>`: knowledge-lane edit to `state: accepted`, proposed as a draft PR to the deciders."""
-        c = self.view().resolve(Ref(ref))
+        c = self.get(Ref(ref))
         if c is None or c["type"] != "ADR":
             return Refusal((f"{ref} não é um ADR do KB",))
         if c.state == "accepted":
@@ -576,7 +624,7 @@ class KB:
             return Refusal((f"{c.kb_id} está `{c.state}`; só ADR `proposed` vira `accepted`",))
         short = c.kb_id.split("-", 2)
         branch = self._branch_here_or(f"kb/{self.handle}/{short[0]}-{short[1]}")
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         c = self.view().resolve(Ref(ref))
         if c is None:
@@ -593,7 +641,7 @@ class KB:
         gate = REGISTRY.gate(gate_id)
         if gate is None:
             return Refusal((f"gate {gate_id!r} não existe; v0.1 tem aposta e spec (degrau é v0.2)",))
-        c = self.view().resolve(ref)
+        c = self.get(ref)
         if c is None:
             return Refusal((f"{ref.raw} não encontrado no KB",))
         d = G.evaluate(self.view(), gate, c, now=self.now)
@@ -612,18 +660,20 @@ class KB:
             return Refusal(tuple(d.lines_pt()))
         bet = d.target.bet
         branch = self._bet_branch(bet.kb_id) if bet else self._branch_here_or(f"kb/{self.handle}/{gate_id}")
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         d = self.decide(gate_id, ref)
         if isinstance(d, Refusal):
             return d
+        if d.already:
+            return Plan(messages_pt=(f"{d.target.primary.kb_id} já está `{d.already}` no branch {branch}",))
         if not d.ok:
             return Refusal(tuple(d.lines_pt()))
         puts = [self._upd(c, self._state(c, to)) for c, to in d.target.moves]
         body = "\n".join([f"Decisão `{gate_id}` de {d.target.primary.kb_id}. Aprovar este PR é a decisão.", ""]
                          + [f"- {l}" for l in d.lines_pt()])
         folder = bet_folder(d.target.primary.path)
-        include = tuple(p for p in W.dirty(self.root) if folder and ("/" + p).startswith(folder + "/")) if W.is_git(self.root) else ()
+        include = tuple(p for p in W.dirty(self.tree) if folder and ("/" + p).startswith(folder + "/")) if W.is_git(self.tree) else ()
         return Plan(knowledge=KnowledgeChange(branch, f"Gate {gate_id}: {d.target.primary.kb_id}", body, tuple(puts), d.approvers,
                                               include=tuple("/" + p for p in include)),
                     messages_pt=(f"decisão {gate_id} pronta no PR; aprovadores: {', '.join(d.approvers)}",))
@@ -663,7 +713,7 @@ class KB:
         if bet_c.state in ("shipped", "killed"):
             return Refusal((f"{bet_c.kb_id} já está `{bet_c.state}`",))
         branch = self._bet_branch(bet_c.kb_id)
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         bet_c = self._bet(bet_c.kb_id)
         if isinstance(bet_c, Refusal):
@@ -812,7 +862,7 @@ class KB:
         if open_ or not self.view().children(bet, "Slice"):
             return Refusal(tuple([f"{s.kb_id} está `{s.state}`" for s in open_] or ["bet sem slices"]))
         branch = self._bet_branch(bet.kb_id)
-        if (r := self._prepare(branch)):
+        if (r := self.checkout(branch)):
             return r
         view = self.view()
         bet = self._bet(bet.kb_id)
@@ -839,30 +889,76 @@ class KB:
     # ------------------------------------------------------------- propose / render / apply
 
     def propose(self, msg: str) -> Plan | Refusal:
+        """Commit hand edits as a knowledge PR. In a worktree: that branch. From the main clone: its edits move to a
+        new branch (the bet's when they touch one bet folder); with a clean main, the one worktree that has edits."""
         if not W.is_git(self.root):
             return Refusal(("`t0 kb propose` precisa de um KB em git",))
-        cur = W.current_branch(self.root)
-        changed = W.dirty(self.root)
-        if cur in (None, W.MAIN):
-            if not changed:
-                return Plan(messages_pt=("nada para propor: árvore limpa no main",))
-            bets = {m.group(1) for p in changed if (m := re.search(r"/bets/(BET-\d+)/", "/" + p))}
-            branch = self._bet_branch(bets.pop()) if len(bets) == 1 else f"kb/{self.handle}/{W.slug(msg, 40)}"
-        else:
-            branch = cur
-        rep = self.check(Level.L1, changed_from=W.base_ref(self.root))
+        branch = W.current_branch(self.tree)
+        move: list[str] = []
+        if self.tree == self.root:
+            if branch not in (None, W.MAIN):
+                return Refusal((f"o clone principal do KB está em {branch}; volte com `git -C {self.root} switch main`",))
+            move = W.dirty(self.root)
+            if move:
+                bets = {m.group(1) for p in move if (m := re.search(r"/bets/(BET-\d+)/", "/" + p))}
+                branch = self._bet_branch(bets.pop()) if len(bets) == 1 else f"kb/{self.handle}/{W.slug(msg, 40)}"
+                if W.ref_exists(self.root, f"refs/heads/{branch}"):
+                    return Refusal((f"mudanças sem commit no clone principal do KB e o branch {branch} já existe; mova-as "
+                                    f"para o worktree {W.worktree_root(self.root) / branch} e rode `t0 kb propose` de lá",))
+            else:
+                edited = [co for co in W.checkouts(self.root) if W.dirty(co.path)]
+                if not edited:
+                    return Plan(messages_pt=("nada para propor: árvore limpa no main e nos worktrees",))
+                if len(edited) > 1:
+                    return Refusal(("mudanças em mais de um worktree; rode `t0 kb propose` de dentro de um deles: "
+                                    + ", ".join(str(co.path) for co in edited),))
+                self.tree, branch = edited[0].path, edited[0].branch
+                self.reload()
+        if branch in (None, W.MAIN):
+            return Refusal((f"{self.tree} não está num branch de conhecimento",))
+        changed = W.dirty(self.tree)
+        rep = self.check(Level.L1, changed_from=W.base_ref(self.tree))
         touched = {"/" + p for p in changed}
-        if cur not in (None, W.MAIN):
-            touched |= {"/" + n for n in W.git(self.root, "diff", "--name-only", W.base_ref(self.root)).splitlines()}
+        if not move:
+            touched |= {"/" + n for n in W.git(self.tree, "diff", "--name-only", W.base_ref(self.tree)).splitlines()}
         errs = [f for f in rep.findings if f.severity is Severity.ERROR and (f.path in touched or f.rule.startswith(("L0.", "LANE.")))]
         if errs:
             return Refusal(tuple(f"{f.rule} {f.path}: {f.message_pt}" for f in errs))
+        if move and not self.dry and (r := self._move_main_edits(move, branch)):
+            return r
         return Plan(knowledge=KnowledgeChange(branch, msg, f"Proposta de conhecimento: {msg}", (), commit_all=True),
                     messages_pt=tuple(f"incluído: /{p}" for p in changed) or ("sem mudança nova; PR do branch",))
 
+    def _move_main_edits(self, changed: Sequence[str], branch: str) -> Refusal | None:
+        """Carry the main clone's edits to a new branch's worktree and restore them on main."""
+        try:
+            self._checkout = W.checkout(self.root, branch)
+        except W.ApplyError as e:
+            return Refusal((str(e),))
+        dst = self._checkout.path
+        for rel in changed:
+            src, out = self.root / rel, dst / rel
+            if src.is_file():
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(src.read_bytes())
+            elif out.is_file():
+                out.unlink()
+        tracked = set(W.git(self.root, "ls-files", "--", *changed).splitlines())
+        if tracked:
+            W.git(self.root, "checkout", "-q", "--", *sorted(tracked))
+        for rel in set(changed) - tracked:
+            (self.root / rel).unlink(missing_ok=True)
+            for d in (self.root / rel).parents:
+                if d == self.root or any(d.iterdir()):
+                    break
+                d.rmdir()
+        self.tree = dst
+        self.reload()
+        return None
+
     def render(self) -> Plan:
-        docs = [d for d in self.docs() if isinstance(d, Document)]
-        view = fold(docs, kb_sha=self.sha())
+        docs = [d for d in read_docs(self.root) if isinstance(d, Document)]
+        view = fold(docs, kb_sha=self.sha(self.root))
         derived = materialize(view, docs)
         from . import gen
 
@@ -879,7 +975,12 @@ class KB:
         if isinstance(plan, Refusal):
             raise ValueError("; ".join(plan.reasons_pt))
         known = frozenset(e.dedup for e in self.view().events)
-        out = W.apply(plan, mode=mode, kb_dir=self.root, known_dedup=known)
+        try:
+            out = W.apply(plan, mode=mode, kb_dir=self.root, known_dedup=known)
+        finally:
+            if self._ids is not None:
+                self._ids.close()
+                self._ids = None
         self.reload()
         return out
 

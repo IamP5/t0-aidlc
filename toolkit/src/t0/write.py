@@ -3,6 +3,8 @@
 Lanes are encoded in types:
   AddRecord        a NEW, uniquely named Step. Built only by `new_record`, which runs the secret/PII scan.
   KnowledgeChange  files on a KB branch -> one commit -> one DRAFT PR (or only the local branch with no forge).
+                   Each knowledge branch lives in its own git worktree (`checkout`); t0 never moves the main
+                   clone's HEAD, so sessions sharing one KB clone never write on each other's branch.
   DerivedChange    only render.materialize builds it; applied only on the KB's main branch.
 
 Idempotency:
@@ -12,6 +14,7 @@ Idempotency:
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import os
 import re
@@ -113,6 +116,7 @@ class Applied:
     commit: str | None = None
     skipped: tuple[str, ...] = ()
     branch: str | None = None
+    tree: Path | None = None       # the knowledge branch's worktree
 
 
 class ApplyMode(Enum):
@@ -205,31 +209,72 @@ def base_ref(kb: Path) -> str:
     return next((r for r in (MAIN, f"origin/{MAIN}") if ref_exists(kb, r)), "HEAD")
 
 
-def switch(kb: Path, branch: str) -> str | None:
-    """Put the work tree on `branch`. New branches start from main; a branch already merged into main
-    restarts from main. Refuses to switch a dirty tree (the message says how to fix). Returns a note."""
-    if not is_git(kb):
-        return None
-    cur = current_branch(kb)
-    if cur == branch:
-        return None
+@dataclass(frozen=True)
+class Checkout:
+    """A knowledge branch and the git worktree that holds it."""
+    branch: str
+    path: Path
+
+
+def worktree_root(kb: Path) -> Path:
+    """`<kb>.wt`, beside the main clone: one worktree per knowledge branch, at `<kb>.wt/<branch>`."""
+    kb = kb.resolve()
+    return kb.with_name(kb.name + ".wt")
+
+
+def _worktrees(kb: Path) -> list[tuple[Path, str | None]]:
+    rows = []
+    for block in git(kb, "worktree", "list", "--porcelain").split("\n\n"):
+        f = dict(l.split(" ", 1) for l in block.splitlines() if " " in l)
+        if "worktree" in f:
+            rows.append((Path(f["worktree"]).resolve(), f.get("branch", "").removeprefix("refs/heads/") or None))
+    return rows
+
+
+def main_clone(kb: Path) -> Path:
+    """The main work tree of the KB repo; a linked worktree has a `.git` file instead of a folder."""
+    return _worktrees(kb)[0][0] if (kb / ".git").is_file() else kb
+
+
+def checkouts(kb: Path) -> tuple[Checkout, ...]:
+    return tuple(Checkout(b, p) for p, b in _worktrees(kb)[1:] if b and b.startswith(("bet/", "kb/")))
+
+
+def open_checkouts(kb: Path) -> tuple[Checkout, ...]:
+    """Knowledge worktrees with work main does not have yet: uncommitted edits or commits not merged."""
+    base = base_ref(kb)
+    return tuple(co for co in checkouts(kb) if dirty(co.path) or subprocess.run(
+        ["git", "-C", str(kb), "merge-base", "--is-ancestor", co.branch, base]).returncode != 0)
+
+
+def checkout(kb: Path, branch: str) -> Checkout:
+    """The worktree of `branch`, from the main clone `kb`. Reused when it exists; a new branch starts from main;
+    a branch already merged into main restarts from main, carrying uncommitted edits git can carry."""
     base = base_ref(kb)
     if not ref_exists(kb, base):
-        return None
-    if dirty(kb):
-        if not ref_exists(kb, f"refs/heads/{branch}") and cur == MAIN:
-            git(kb, "switch", "-c", branch)
-            return f"branch {branch} criada a partir do main com as mudanças da árvore"
-        raise ApplyError(f"árvore do KB suja em `{cur}`; faça commit (ou `t0 kb propose`) antes de ir para {branch}")
-    if ref_exists(kb, f"refs/heads/{branch}"):
-        merged = subprocess.run(["git", "-C", str(kb), "merge-base", "--is-ancestor", branch, base]).returncode == 0
-        if merged:
-            git(kb, "switch", "--no-track", "-C", branch, base)
+        raise ApplyError("KB sem commit no main; faça o primeiro commit")
+    git(kb, "worktree", "prune")
+    path = next((p for p, b in _worktrees(kb) if b == branch), None)
+    if path == kb.resolve():
+        raise ApplyError(f"o clone principal do KB está em {branch}; volte com `git -C {kb} switch main`")
+    exists = ref_exists(kb, f"refs/heads/{branch}")
+    stale = exists and git(kb, "rev-parse", branch) != git(kb, "rev-parse", base) and subprocess.run(
+        ["git", "-C", str(kb), "merge-base", "--is-ancestor", branch, base]).returncode == 0
+    if path is None:
+        path = worktree_root(kb) / branch
+        if path.exists():
+            raise ApplyError(f"{path} existe e não é worktree do KB; apague a pasta e rode de novo")
+        if exists and not stale:
+            git(kb, "worktree", "add", "-q", str(path), branch)
         else:
-            git(kb, "switch", branch)
-    else:
-        git(kb, "switch", "--no-track", "-c", branch, base)
-    return f"no branch {branch}"
+            git(kb, "worktree", "add", "-q", "--no-track", "-B", branch, str(path), base)
+    elif stale:
+        try:
+            git(path, "switch", "-q", "--no-track", "-C", branch, base)
+        except ApplyError:
+            raise ApplyError(f"{branch} já entrou no main e o worktree {path} tem mudanças que conflitam com o main; "
+                             "faça commit ou descarte") from None
+    return Checkout(branch, path)
 
 
 # ------------------------------------------------------------------ spool
@@ -267,12 +312,12 @@ def apply(plan: Plan, *, mode: ApplyMode, kb_dir: Path, known_dedup: frozenset[s
         p = sp / r.doc.path.lstrip("/")
         _write(p, r.doc.text)
         spooled.append(p)
-    commit = pr_url = branch = None
+    commit = pr_url = branch = tree = None
     if plan.knowledge is not None:
-        commit, pr_url, branch = _apply_knowledge(plan.knowledge, kb_dir)
+        commit, pr_url, branch, tree = _apply_knowledge(plan.knowledge, kb_dir)
     if plan.derived is not None:
         commit, branch = _apply_derived(plan.derived, kb_dir), MAIN
-    return Applied(tuple(spooled), pr_url, commit, tuple(skipped), branch)
+    return Applied(tuple(spooled), pr_url, commit, tuple(skipped), branch, tree)
 
 
 def _commit(kb: Path, paths: list[str] | None, msg: str) -> str | None:
@@ -283,24 +328,23 @@ def _commit(kb: Path, paths: list[str] | None, msg: str) -> str | None:
     return git(kb, "rev-parse", "--short", "HEAD")
 
 
-def _apply_knowledge(k: KnowledgeChange, kb: Path) -> tuple[str | None, str | None, str | None]:
-    if is_git(kb):
-        switch(kb, k.branch)
-    for d in k.puts:
-        _write(kb / d.path.lstrip("/"), d.text)
+def _apply_knowledge(k: KnowledgeChange, kb: Path) -> tuple[str | None, str | None, str | None, Path | None]:
     if not is_git(kb):
-        return None, None, None
-    if current_branch(kb) != k.branch:
-        raise ApplyError(f"KB não está em {k.branch}")
+        for d in k.puts:
+            _write(kb / d.path.lstrip("/"), d.text)
+        return None, None, None, None
+    tree = checkout(kb, k.branch).path
+    for d in k.puts:
+        _write(tree / d.path.lstrip("/"), d.text)
     paths = None if k.commit_all else [d.path.lstrip("/") for d in k.puts] + [p.lstrip("/") for p in k.include]
-    commit = _commit(kb, paths, k.title_pt + ("\n\n" + k.body_pt if k.body_pt else ""))
+    commit = _commit(tree, paths, k.title_pt + ("\n\n" + k.body_pt if k.body_pt else ""))
     forge = _forge.configured()
     if forge is None:
-        return commit, None, k.branch
+        return commit, None, k.branch, tree
     if forge.kind == "github":
-        git(kb, "push", "origin", f"{k.branch}:{k.branch}")
+        git(tree, "push", "origin", f"{k.branch}:{k.branch}")
     pr = _forge.open_pr(forge, head=k.branch, base=MAIN, title=k.title_pt, body=k.body_pt, reviewers=k.reviewers)
-    return commit, pr.url, k.branch
+    return commit, pr.url, k.branch, tree
 
 
 def _apply_derived(d: DerivedChange, kb: Path) -> str | None:
@@ -316,9 +360,21 @@ def _apply_derived(d: DerivedChange, kb: Path) -> str | None:
 def push_spool(*, kb_dir: Path, handle: str, mode: str, landed: frozenset[str]) -> tuple[Applied, list[str]]:
     """`t0 kb push`: commit the spooled records onto `rec/<handle>/<date>` from main with a temporary
     index (plumbing; the work tree is untouched), then open the records PR when a forge exists
-    (auto-merge only in mode `auto`). Spool files already on main are removed first."""
+    (auto-merge only in mode `auto`). Spool files already on main are removed first. One push at a time per
+    spool: a second session's push skips while the first holds the lock."""
     sp = spool_dir(kb_dir)
-    files = sorted(p for p in sp.rglob("*.md")) if sp.is_dir() else []
+    if not sp.is_dir():
+        return Applied(), ["nada no spool para empurrar"]
+    with open(sp / ".push.lock", "a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return Applied(), ["push em andamento em outra sessão"]
+        return _push(sp, kb_dir=kb_dir, handle=handle, mode=mode, landed=landed)
+
+
+def _push(sp: Path, *, kb_dir: Path, handle: str, mode: str, landed: frozenset[str]) -> tuple[Applied, list[str]]:
+    files = sorted(sp.rglob("*.md"))
     msgs: list[str] = []
     pending: list[tuple[str, Path]] = []
     for p in files:

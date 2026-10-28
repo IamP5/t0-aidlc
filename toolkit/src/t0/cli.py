@@ -68,6 +68,8 @@ def describe_applied(a: Applied) -> list[str]:
         out.append(f"kb-render: commit {a.commit or '(sem mudança nova)'} no main")
     elif a.branch:
         out.append(f"commit {a.commit or '(sem mudança nova)'} no branch local {a.branch}; sem forge: o merge no main é a aprovação")
+    if a.tree:
+        out.append(f"worktree do branch: {a.tree}")
     return out
 
 
@@ -77,7 +79,7 @@ def run_plan(kb: Any, result: Plan | Refusal, dry: bool, *, mode: Any = None) ->
         for r in result.reasons_pt:
             _out(f"  - {r}")
         return EXIT_REFUSED
-    for l in describe(result, kb.root if kb else None, dry=dry):
+    for l in describe(result, kb.tree if kb else None, dry=dry):
         _out(l)
     if dry or result.empty:
         return EXIT_OK
@@ -308,14 +310,8 @@ def cmd_ritual(a: argparse.Namespace) -> int:
         return run_plan(kb, Refusal((f"--decisions: {e}",)), True)
     transcript = _redact_file(a.transcript) if a.transcript else None
     branch = f"kb/{kb.handle}/ritual-{a.slug}-{kb.now[:10]}"
-    if not a.dry_run:
-        from .write import ApplyError, switch
-
-        try:
-            switch(kb.root, branch)
-        except ApplyError as e:
-            return run_plan(kb, Refusal((str(e),)), True)
-        kb.reload()
+    if (r := kb.checkout(branch)):
+        return run_plan(kb, r, True)
     return run_plan(kb, rituals.close(kb.view(), a.slug, inp, now=kb.now, handle=kb.handle, transcript=transcript), a.dry_run)
 
 
@@ -471,11 +467,53 @@ def cmd_setup(a: argparse.Namespace) -> int:
     return setup.run(repo=Path(a.repo) if a.repo else None, check=a.check)
 
 
+def _shared_kb_rows(kb: Any) -> list[tuple[str, bool | None, str]]:
+    """Several workspaces, one KB clone: `<ws>/kb` is a symlink to config `kb:`, and Claude Code may open the
+    workspaces' parent, the KB and its worktrees without asking. Reads only."""
+    import yaml
+
+    from . import ws
+    from .write import worktree_root
+
+    w = ws.locate(Path.cwd())
+    if w is None:
+        return []
+    rows: list[tuple[str, bool | None, str]] = []
+    cfg = Path.home() / ".t0/config.yaml"
+    data = yaml.safe_load(cfg.read_text(encoding="utf-8")) if cfg.is_file() else None
+    shared = Path(str(data["kb"])).expanduser().resolve() if isinstance(data, dict) and data.get("kb") else None
+    if shared is not None and w.kb_dir.exists():
+        same = w.kb_dir.resolve() == shared
+        rows.append(("KB compartilhado", True if same else None, f"{w.kb_dir} -> {shared}" if same else
+                     f"{w.kb_dir} é {w.kb_dir.resolve()}, o config aponta {shared}: mova a pasta e rode `ln -s {shared} {w.kb_dir}`"))
+    claude = Path.home() / ".claude"
+    if claude.is_dir():
+        try:
+            settings = json.loads((claude / "settings.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            settings = {}
+        perms = settings.get("permissions") if isinstance(settings, dict) else None
+        dirs = perms.get("additionalDirectories") if isinstance(perms, dict) else None
+        have = [Path(d) for d in dirs or () if isinstance(d, str) and d.startswith("/")]
+        need = [w.root.parent.resolve()]
+        if kb is not None:
+            need += [kb.root, worktree_root(kb.root)]
+        missing = []
+        for d in need:
+            if not any(d == h or h in d.parents for h in have + missing):
+                missing.append(d)
+        rows.append(("Claude Code additionalDirectories", True if not missing else None,
+                     "cobre " + ", ".join(map(str, need)) if not missing else
+                     "adicione em ~/.claude/settings.json: \"permissions\": {\"additionalDirectories\": "
+                     + json.dumps([str(d) for d in missing]) + "} (caminho absoluto, sem ~)"))
+    return rows
+
+
 def cmd_doctor(a: argparse.Namespace) -> int:
     from . import _forge
     from .check import Level
 
-    rows: list[tuple[str, bool, str]] = [
+    rows: list[tuple[str, bool | None, str]] = [
         ("python >= 3.11", sys.version_info >= (3, 11), sys.version.split()[0]),
         ("git", shutil.which("git") is not None, shutil.which("git") or "ausente"),
         ("t0 no PATH", shutil.which("t0") is not None, shutil.which("t0") or "hooks e MCP chamam `t0`"),
@@ -496,9 +534,10 @@ def cmd_doctor(a: argparse.Namespace) -> int:
         rows.append(("forge", False, str(e)))
     w = _ws(kb)
     rows.append(("workspace", True, str(w.root) if w else "nenhum (.t0/workspace.json)"))
+    rows += _shared_kb_rows(kb)
     for name, ok, detail in rows:
-        _out(f"{'ok   ' if ok else 'FALHA'} {name}: {detail}")
-    return EXIT_OK if all(ok for _, ok, _ in rows) else EXIT_REFUSED
+        _out(f"{'ok   ' if ok else 'aviso' if ok is None else 'FALHA'} {name}: {detail}")
+    return EXIT_OK if all(ok is not False for _, ok, _ in rows) else EXIT_REFUSED
 
 
 # ------------------------------------------------------------------ parser

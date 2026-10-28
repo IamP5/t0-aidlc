@@ -9,7 +9,7 @@ from t0.redact import redact
 from t0.view import Ref
 from t0.write import Plan, Refusal
 from test_check import build
-from test_kb import do, env  # noqa: F401  (autouse env fixture)
+from test_kb import do, env, on  # noqa: F401  (autouse env fixture)
 
 NOW = "2026-10-28T10:00:00-03:00"
 G = "generated: { by: human:ana, at: 2026-10-27T10:00:00-03:00 }"
@@ -75,8 +75,9 @@ def test_close_needs_an_owner_for_every_decision_and_is_idempotent(tmp_path):
     rec = p.knowledge.puts[0]
     assert rec.path == "/rituals/daily-time/2026-10-28.md" and "owner: human:bia" in rec.text
     KB.open(kb).apply(p)
-    again = rituals.close(KB.open(kb).view(), "daily-time", inp, now=NOW, handle="ana")
-    assert again.knowledge.puts[0].text == (kb / "rituals/daily-time/2026-10-28.md").read_text()
+    branch = on(kb, p.knowledge.branch)
+    again = rituals.close(branch.view(), "daily-time", inp, now=NOW, handle="ana")
+    assert again.knowledge.puts[0].text == (branch.tree / "rituals/daily-time/2026-10-28.md").read_text()
 
 
 def test_unowned_blocker_is_recorded_and_listed_by_the_next_daily_time(tmp_path):
@@ -92,7 +93,7 @@ def test_unowned_blocker_is_recorded_and_listed_by_the_next_daily_time(tmp_path)
     rec = p.knowledge.puts[0].text
     assert "owner: unassigned" in rec and "Bloqueio: sem ambiente de QA (dono: a definir)" in rec
     KB.open(kb).apply(p)
-    text = rituals.open_agenda(KB.open(kb).view(), "daily-time", "2026-10-29T10:00:00-03:00")
+    text = rituals.open_agenda(on(kb, p.knowledge.branch).view(), "daily-time", "2026-10-29T10:00:00-03:00")
     section = text.split("### Bloqueios sem dono")[1]
     assert "- review do SBP-2 parado (daily-pod de 2026-10-28)" in section and "sem ambiente de QA" in section
     assert "canal #t0" not in section
@@ -127,7 +128,7 @@ def test_demo_records_the_new_rotation(tmp_path):
     ok = rituals.CloseInput(rotation={"flow-steward": "human:bia", "harness-keeper": "human:caio"})
     p = rituals.close(v, "demo", ok, now=NOW, handle="ana")
     KB.open(kb).apply(p)
-    rot = KB.open(kb).get(Ref("/team/rotations/flow-steward.md"))
+    rot = on(kb, p.knowledge.branch).get(Ref("/team/rotations/flow-steward.md"))
     assert rot["assignments"][-1] == {"who": "human:bia", "from": NOW, "to": "2026-11-11T10:00:00-03:00"}
     assert rot["assignments"][-2]["to"] == NOW and rot["stale_after"] == "2026-11-11T10:00:00-03:00"
 

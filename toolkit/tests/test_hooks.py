@@ -154,6 +154,29 @@ def test_prompt_submit_warns_on_foreign_key_only(env):
     assert claude("prompt-submit", env / "ws", prompt="segue PAY-131") == (0, "", "")
 
 
+def test_prompt_submit_names_the_product_and_bet_of_a_key_from_another_bet(env):
+    kb = env / "ws/kb"
+    for prod, bet, key in (("p", "BET-1", "PAY-131"), ("paco", "BET-7", "PAC-9")):
+        folder = kb / f"products/{prod}/bets/{bet}"
+        (folder / "slices").mkdir(parents=True, exist_ok=True)
+        (folder / "bet.md").write_text(f"---\ntype: Bet\ntitle: {bet}\nuid: {bet.lower()}\n---\n")
+        (folder / "slices/01-x.md").write_text(f"---\ntype: Slice\ntitle: x\nuid: {bet.lower()}-s1\n---\n")
+        (folder / "steps").mkdir(exist_ok=True)
+        (folder / "steps/link.md").write_text(
+            f"---\ntype: Step\nkind: jira-linked\ntarget: {bet.lower()}-s1\npayload: {{key: {key}}}\n"
+            "generated: {by: process:t0-sync, at: 2026-10-27T10:00:00Z}\n---\nlink\n")
+    t0 = env / "ws/.t0"
+    t0.mkdir()
+    (t0 / "workspace.json").write_text(json.dumps({"product": "p"}))
+    (t0 / "bet.json").write_text(json.dumps({"bet": "BET-1", "product": "p", "stories": ["PAY-131"]}))
+    code, out, _ = claude("prompt-submit", env / "ws", prompt="olha o PAC-9 e o BET-7, e segue PAY-131")
+    msg = json.loads(out)["systemMessage"]
+    assert code == 0 and "\n" not in msg
+    assert "PAC-9 (BET-7, produto paco)" in msg and "BET-7 (produto paco)" in msg and "PAY-131" not in msg
+    assert "workspace de paco" in msg
+    assert claude("prompt-submit", env / "ws", prompt="segue PAY-131 e a BET-1") == (0, "", "")
+
+
 def test_stop_never_blocks(env):
     assert claude("stop", env)[0] == 0
 

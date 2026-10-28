@@ -47,10 +47,12 @@ def test_rapida_end_to_end_without_a_forge(capsys, tmp_path, monkeypatch):
     assert t0(capsys, "kb", "init", "kb")[1].count("0 arquivo(s) novos") == 1
     monkeypatch.chdir(kb)
     code, out = t0(capsys, "new", "bet", "--track", "rapida", "Corrigir fuso", "--product", "exemplo", "--repo", "status-bot")
-    assert code == 0 and "branch bet/BET-003/ana-exemplo" in out and "sem forge" in out
+    wt = tmp_path / "kb.wt/bet/BET-003/ana-exemplo"
+    assert code == 0 and "branch bet/BET-003/ana-exemplo" in out and "sem forge" in out and f"worktree do branch: {wt}" in out
+    assert git(kb, "branch", "--show-current") == "main" and not (kb / "products/exemplo/bets/BET-003").exists()
     code, out = t0(capsys, "gate", "aposta", "BET-003")
     assert code == 1 and "rapida_slice_complete" in out
-    sl = next((kb / "products/exemplo/bets/BET-003/slices").glob("01-*.md"))
+    sl = next((wt / "products/exemplo/bets/BET-003/slices").glob("01-*.md"))
     sl.write_text(sl.read_text().replace("## Atual\n", "## Atual\n\nsai 07:50\n").replace("## Esperado\n", "## Esperado\n\nsai 08:50\n")
                   .replace("## Não muda\n\n- ", "## Não muda\n\n- o canal")
                   .replace("## Critérios de aceite\n\n- ", "## Critérios de aceite\n\n- sai 08:50")
@@ -68,7 +70,7 @@ def test_rapida_end_to_end_without_a_forge(capsys, tmp_path, monkeypatch):
     assert t0(capsys, "kb", "push")[0] == 0
     merge(kb, "rec/ana-exemplo/2026-10-28")
     assert t0(capsys, "kb", "render")[0] == 0
-    key = git(kb, "show", f"HEAD:{sl.relative_to(kb)}").split("jira: ")[1].split("\n")[0]
+    key = git(kb, "show", f"HEAD:{sl.relative_to(wt)}").split("jira: ")[1].split("\n")[0]
     assert t0(capsys, "slice", "dor", key)[0] == 0
     (tmp_path / "work/.audit").mkdir(parents=True)
     (tmp_path / "work/.audit" / f"{key}.tsv").write_text("x")
@@ -144,8 +146,42 @@ def test_t0_kb_reaches_the_workspace_kb_from_any_cwd(capsys, tmp_path, monkeypat
     monkeypatch.setenv("T0_KB", str(tmp_path / "ws/kb"))
     code, out = t0(capsys, "new", "idea", "--title", "Alerta de fuso no extrato")
     assert code == 0, out
-    code, out = t0(capsys, "kb", "find", "--text", "Alerta de fuso")
-    assert code == 0 and "/ideas/IDEA-" in out and "Alerta de fuso" in out, out
-    assert t0(capsys, "kb", "find", "Alerta de fuso") == (code, out)
+    idea = out.split(" reservada")[0].split()[-1]
+    code, out = t0(capsys, "kb", "get", idea)
+    assert code == 0 and "Alerta de fuso" in out, out
+    code, out = t0(capsys, "kb", "find", "--text", "review parado")
+    assert code == 0 and "/ideas/IDEA-0001.md" in out, out
+    assert t0(capsys, "kb", "find", "review parado") == (code, out)
     code, out = t0(capsys, "doctor")
     assert f"workspace: {tmp_path / 'ws'}" in out, out
+
+
+@needs_template
+def test_doctor_warns_on_a_second_kb_clone_and_on_claude_dirs_it_cannot_open(capsys, tmp_path, monkeypatch):
+    import json
+
+    home = tmp_path / "home"
+    t0(capsys, "kb", "init", "kb")
+    shared = tmp_path / "kb"
+    ws = tmp_path / "ws/exemplo"
+    (ws / ".t0").mkdir(parents=True)
+    (ws / ".t0/workspace.json").write_text('{"schema": 1, "product": "exemplo"}')
+    t0(capsys, "kb", "init", str(ws / "kb"))
+    (home / ".t0").mkdir(parents=True)
+    (home / ".t0/config.yaml").write_text(f"kb: {shared}\n")
+    (home / ".claude").mkdir()
+    (home / ".claude/settings.json").write_text(json.dumps({"permissions": {"additionalDirectories": ["~/ws"]}}))
+    monkeypatch.chdir(ws)
+    code, out = t0(capsys, "doctor")
+    assert f"aviso KB compartilhado: {ws / 'kb'} é" in out and f"`ln -s {shared.resolve()} {ws / 'kb'}`" in out
+    assert "aviso Claude Code additionalDirectories" in out and json.dumps([str((tmp_path / "ws").resolve())]) in out
+    subprocess.run(["rm", "-rf", str(ws / "kb")], check=True)
+    (ws / "kb").symlink_to(shared)
+    code, out = t0(capsys, "doctor")
+    need = [str((tmp_path / "ws").resolve()), str(shared.resolve()), str((tmp_path / "kb.wt").resolve())]
+    assert json.dumps(need) in out, out
+    (home / ".claude/settings.json").write_text(json.dumps(
+        {"permissions": {"additionalDirectories": [str((tmp_path / "ws").resolve()), str(tmp_path.resolve())]}}))
+    code, out = t0(capsys, "doctor")
+    assert f"ok    KB compartilhado: {ws / 'kb'} -> {shared.resolve()}" in out
+    assert "ok    Claude Code additionalDirectories" in out and "aviso" not in out
