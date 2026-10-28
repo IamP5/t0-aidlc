@@ -4,7 +4,7 @@ Um produto tem vários repos, e o agente precisa do KB (a base de conhecimento d
 
 ## A ideia
 
-O KB continua sendo um repo próprio, que o time inteiro consegue ler, e guarda um manifesto por produto. Cada dev mantém um workspace de longa duração por produto, em `~/ws/<produto>/`, com o KB e os repos do produto como clones normais. O card de contexto fica na raiz. Claude Code, Copilot e Kiro leem nativamente um `AGENTS.md` de raiz. Por isso, o piso do padrão não depende de plugin, de servidor nem de multi-root. Plugin, hooks e o MCP local só mantêm o card atualizado e acrescentam ferramentas. No dia um não existe serviço hospedado.
+O KB continua sendo um repo próprio, que o time inteiro consegue ler, e guarda um manifesto por produto. Cada dev mantém um workspace de longa duração por produto, em `~/ws/<produto>/`, com os repos do produto como clones normais. O KB tem um clone só por máquina, em `~/kb`, e o `kb/` de cada workspace é um link para ele. O card de contexto fica na raiz. Claude Code, Copilot e Kiro leem nativamente um `AGENTS.md` de raiz. Por isso, o piso do padrão não depende de plugin, de servidor nem de multi-root. Plugin, hooks e o MCP local só mantêm o card atualizado e acrescentam ferramentas. No dia um não existe serviço hospedado.
 
 O KB não usa git submodules, por causa destes problemas: HEAD destacado (o agente commita e perde o commit), bump de ponteiro todo dia, código velho, KB preso ao repo menos legível e um token de CI que lê todos os repos. Android, Zephyr e Chromium usam manifesto com clones irmãos, e o t0 faz o mesmo.
 
@@ -19,12 +19,14 @@ O KB não usa git submodules, por causa destes problemas: HEAD destacado (o agen
     context.md                  gerado: delta de frescor do card
     env.sh                      gerado: exports para o Copilot CLI
   .vscode/  .kiro/              gerados por ferramenta
-  kb/                           clone normal do t0-kb
+  kb -> ~/kb                    link para o clone único do KB
   api/  web/  ...               clones normais dos repos do produto
 
 ~/ws/<produto>@BET-NNN/         opcional: workspace isolado de uma bet, com worktrees
+~/kb/                           clone único do t0-kb; fica sempre no main
+~/kb.wt/<branch>/               um worktree por branch de conhecimento (bet/BET-NNN/<handle>, kb/<handle>/<tema>)
 ~/.t0/
-  config.yaml                   handle, remote do KB, raiz dos workspaces
+  config.yaml                   handle, `kb:` (o caminho do clone), remote do KB, raiz dos workspaces
   spool/                        registros esperando push
   inbox/                        gravações cruas; nenhum agente lê
 ```
@@ -32,7 +34,8 @@ O KB não usa git submodules, por causa destes problemas: HEAD destacado (o agen
 Regras:
 
 - Abra sempre a pasta do workspace como pasta única, nunca como multi-root.
-- Cada clone tem um agente só. Um segundo agente em paralelo vai para um workspace isolado.
+- Cada clone de repo de produto tem um agente só. Um segundo agente em paralelo vai para um workspace isolado.
+- O clone do KB é a exceção: várias sessões usam o mesmo. O `t0` nunca troca a branch dele. Cada escrita de conhecimento vai para o worktree da sua branch.
 - Um repo sem acesso fica marcado `absent` no `.t0/workspace.json`, e o card informa isso. Assim o agente nunca supõe que o repo está vazio.
 - Nada do que é gerado no workspace vai para commit.
 
@@ -63,16 +66,39 @@ O manifesto não fixa revisão: a bet sempre parte da branch padrão de cada rep
 
 ## Montando o workspace
 
-O padrão prevê o comando `t0 ws init <produto>`. Ele lê o manifesto, clona o KB e os repos como irmãos, pula os repos que derem 403 e gera o `AGENTS.md`. A CLI atual ainda não tem o clone automático, porque ele depende de detalhes do GHE do banco. Até lá, monte o workspace à mão:
+O padrão prevê o comando `t0 ws init <produto>`. Ele lê o manifesto, liga o KB, clona os repos como irmãos, pula os repos que derem 403 e gera o `AGENTS.md`. A CLI atual ainda não tem o clone automático, porque ele depende de detalhes do GHE do banco. Até lá, monte à mão.
+
+Uma vez por máquina, clone o KB e diga ao `t0` onde ele está:
+
+```
+git clone git@github.example.bank:t0/t0-kb.git ~/kb
+echo "kb: ~/kb" >> ~/.t0/config.yaml
+```
+
+Depois, em cada workspace:
 
 ```
 mkdir -p ~/ws/exemplo && cd ~/ws/exemplo
-git clone git@github.example.bank:t0/t0-kb.git kb
+ln -s ~/kb kb
 git clone git@github.example.bank:t0/status-bot.git status-bot
 t0 context --kb kb --format agents > AGENTS.md
 ```
 
-A URL de cada repo está no manifesto. Para trocar a bet ativa, use `t0 bet use BET-002`. Para conferir qual bet a sessão enxerga, use `t0 bet detect`.
+A URL de cada repo está no manifesto. O `t0 doctor` avisa quando o `kb/` do workspace aponta para outro clone que não o do `config.yaml`. Para trocar a bet ativa, use `t0 bet use BET-002`. Para conferir qual bet a sessão enxerga, use `t0 bet detect`.
+
+## Várias iniciativas
+
+Quem está em mais de um pod trabalha com um KB e um workspace por produto. Para trocar de produto, abra outra janela no workspace do outro produto. As duas sessões podem rodar ao mesmo tempo.
+
+- O WIP de 2 slices em construção conta somando todos os produtos.
+- `t0 bet use` recusa bet de outro produto e diz qual workspace abrir.
+- O hook de prompt avisa numa linha quando você cita a chave de outra bet, com a bet e o produto dela.
+- Cada branch de conhecimento vive no seu worktree, em `~/kb.wt/<branch>`. O `t0 new`, o `t0 gate`, o `t0 ritual close` e os outros comandos de conhecimento escrevem lá e imprimem o caminho. O clone `~/kb` fica no main.
+- Edite à mão no worktree que o `t0` imprimiu. O `t0 kb propose` commita o worktree onde você está. Fora de um worktree, ele usa o único worktree com mudanças. Com mudanças no `~/kb`, ele as leva para uma branch nova. Se a branch já existe, ele recusa e diz para onde mover.
+- O `t0 gate` recusa quando o `~/kb` tem mudanças sem commit na pasta da bet, porque elas ficariam fora do PR.
+- A reserva de número (IDEA, BET, ADR, HI) roda uma de cada vez: a segunda sessão espera a primeira gravar o commit.
+- O push dos registros roda um de cada vez. Se outra sessão está empurrando, o hook de fim pula e tenta na próxima.
+- No Claude Code, `permissions.additionalDirectories` em `~/.claude/settings.json` precisa de caminhos absolutos (sem `~`) que cubram `~/ws`, `~/kb` e `~/kb.wt`. O `t0 doctor` confere e mostra a entrada exata.
 
 ## O card de contexto (AGENTS.md)
 

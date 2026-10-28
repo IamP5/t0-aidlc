@@ -8,6 +8,8 @@ Todo comando aceita `--kb <pasta>` para apontar o KB (a base de conhecimento do 
 - aceita `--dry-run`, que mostra o plano sem aplicar;
 - tem efeito limitado a um registro no spool (a pasta local onde os registros esperam o push), a um PR de conhecimento em draft (ou a branch e commit locais, quando não há forge configurado) ou a nada.
 
+Cada branch de conhecimento tem um worktree próprio, em `<kb>.wt/<branch>` (por exemplo `~/kb.wt/bet/BET-012/ana`). O comando escreve lá e imprime o caminho. O clone do KB fica no main, então duas sessões no mesmo clone não escrevem uma na branch da outra. Um ref que ainda não entrou no main (uma bet recém-criada, por exemplo) é procurado também nos worktrees. O `t0 kb find` lê só o main e o spool.
+
 Nos comandos que aceitam `--format`, o relatório sai em `text`, `github` ou `json`. Em qualquer comando, o código de saída 3 quer dizer KB indisponível.
 
 ## Configurar
@@ -15,7 +17,7 @@ Nos comandos que aceitam `--format`, o relatório sai em `text`, `github` ou `js
 | Comando | O que faz |
 |---|---|
 | `t0 setup [--repo R] [--check]` | num repo de produto, escreve o bloco t0 no `AGENTS.md`, os ponteiros por ferramenta, os hooks e os links das skills `verify-<app>` |
-| `t0 doctor` | confere a instalação: `t0` no PATH, config das ferramentas, hooks e se o KB está alcançável |
+| `t0 doctor` | confere a instalação: `t0` no PATH, config das ferramentas, hooks e se o KB está alcançável; avisa quando o `kb/` do workspace não é o clone do `config.yaml` e quando o Claude Code não tem `additionalDirectories` absolutos para `~/ws`, `~/kb` e `~/kb.wt` |
 | `t0 gen [--check] [--scope plugin\|kb] [--src S] [--out O]` | regenera os arquivos gerados do plugin ou do KB (como o `profile.md`); com `--check`, só aponta as diferenças |
 
 ## Ler o KB
@@ -36,8 +38,8 @@ Nos comandos que aceitam `--format`, o relatório sai em `text`, `github` ou `js
 | `t0 new bet --track rapida\|bet <IDEA>` | abre o PR da aposta; na trilha rápida, o PR já vem com o slice |
 | `t0 idea prototype <IDEA> --verdict segue\|ajusta\|mata [--ref R]` | grava na Idea o veredito do protótipo |
 | `t0 log progress\|decision\|blocker\|kill "<texto>" [--bet B] [--story K]` | grava um registro de passo pela raia de registros |
-| `t0 kb propose -m MSG` | abre um PR de conhecimento em draft para a branch atual do clone do KB |
-| `t0 kb push [--if-due]` | empurra para o KB os registros do spool |
+| `t0 kb propose -m MSG` | abre um PR de conhecimento em draft com as edições à mão: as do worktree onde você está; fora de um, as do único worktree com mudanças; com mudanças no clone do KB, leva-as para uma branch nova (recusa se a branch já existe) |
+| `t0 kb push [--if-due]` | empurra para o KB os registros do spool; se outra sessão já está empurrando, pula com "push em andamento em outra sessão" |
 | `t0 adr accept <ADR>` | prepara a mudança do ADR para `accepted` num PR em draft, para quem decide |
 | `t0 kb init <dir>` | cria um KB novo a partir do `okf-template` |
 | `t0 kb render` | regenera índices, `log.md` e chaves derivadas; quem roda é o workflow `kb-render`, não uma pessoa |
@@ -56,7 +58,7 @@ O gate grava `state` e `status` no PR de decisão e nunca grava `verified` (a ch
 | Comando | O que faz |
 |---|---|
 | `t0 bet detect` | imprime a bet ativa e a regra que a resolveu |
-| `t0 bet use <BET\|KEY>` | troca a bet ativa; uma chave Jira é resolvida por lookup |
+| `t0 bet use <BET\|KEY>` | troca a bet ativa; uma chave Jira é resolvida por lookup; recusa bet de outro produto e diz qual workspace abrir |
 | `t0 slice dor <KEY>` | confere o DoR do slice (o que ele precisa ter para começar) e o WIP de 2 por pessoa |
 | `t0 slice start <KEY>` | cria a branch `<KEY>-<slug>` no repo do slice, ou troca para ela; recusa se a árvore estiver suja |
 
