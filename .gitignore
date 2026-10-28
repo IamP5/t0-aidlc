@@ -5,3 +5,4 @@ __pycache__/
 plugin/evals/results/
 .pytest_cache/
 dist/
+toolkit/.venv/
