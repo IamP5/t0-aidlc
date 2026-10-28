@@ -348,7 +348,7 @@ Os registros vêm de duas fontes:
 - O `t0 pr` emite `pr-opened` pela raia de registros do dev.
 - O `t0-kb-sync`, workflow reutilizável em cada repo de produto, dispara em `pull_request: [opened, ready_for_review, synchronize, closed]`. Ele escreve registros `pr-*` (e as linhas de decisão do `.audit/<KEY>.tsv` no merge) na raia de registros usando o **GitHub App KB-writer**. É **a única credencial que atravessa repos** no design. Fica instalado só no `t0-kb`. O workflow pede tokens de instalação com permissão reduzida: `contents:read` para checks e setup steps, `contents:write` + `pull_requests:write` só no job de escrita **(verificar: token de App com permissões reduzidas na versão do GHE)**. Ele não enxerga código de produto.
 
-**Transições no Jira.** O `kb-render`, rodando no KB, aplica G4 e G5 a partir dos registros: PR saiu de draft → In Review; merge → Done. "Done" da Feature só quando o change set inteiro mergeou. O token do Jira mora só no KB.
+**Transições no Jira.** O `kb-render`, rodando no KB, aplica as transições de estado do slice a partir dos registros: PR saiu de draft → In Review; merge → Done. "Done" da Feature só quando o change set inteiro mergeou. O token do Jira mora só no KB.
 
 ---
 
@@ -358,8 +358,8 @@ Os registros vêm de duas fontes:
 
 | Raia | O quê | Caminho | Como entra | Revisão |
 |---|---|---|---|---|
-| **Registros** | Passos (`t0 log`), decisão em voo, bloqueio, handoff, eventos de PR, linhas de `.audit`, chaves Jira criadas, resumo de sessão | `/products/<p>/bets/BET-NNN/steps/<utc-ts>-<handle>-<repo>-<rand4>.md` (`type: Step`); fora de bet, `/cycles/<C>/steps/<utc-ts>-<handle>-<rand4>.md` | `kb_record` / `t0 kb record` / `t0 log` escrevem em `~/.t0/spool/`. `t0 kb push` monta **um commit por sessão** sobre `origin/main` com índice temporário (plumbing, não toca árvore de trabalho), empurra `rec/<handle>/<ts>`, abre PR e liga auto-merge **(verificar: auto-merge com a proteção de branch do banco)** | Nenhuma humana. Check obrigatório `kb-check --lane records`: só adições, caminho no padrão, frontmatter OKF + profile válido, `generated.by` coerente com o autor, secret scan limpo, ≤20 KB por arquivo |
-| **Conhecimento** | `bet.md`, spec, plan, slices, ADRs, `workspace.md`, metodologia, rituais, glossário, **records de reunião e transcrições redigidas** (`/cycles/<C>/rituals/`, `/cycles/<C>/transcripts/`), mudanças de `state` por `t0 gate` | todo o resto | Branch `bet/BET-NNN/<handle>` (ou `kb/<handle>/<tema>`) no `kb/` → PR | CODEOWNERS: dono da bet na pasta da bet, steward da metodologia em `/methodology/`, facilitador em `/cycles/*/rituals/`. Transcrição sempre com revisor humano confirmando a redação |
+| **Registros** | Passos (`t0 log`), decisão em voo, bloqueio, handoff, eventos de PR, linhas de `.audit`, chaves Jira criadas, resumo de sessão | `/products/<p>/bets/BET-NNN/steps/<utc-ts>-<handle>-<repo>-<rand4>.md` (`type: Step`); fora de bet, `/steps/<utc-ts>-<handle>-<rand4>.md` | `kb_record` / `t0 kb record` / `t0 log` escrevem em `~/.t0/spool/`. `t0 kb push` monta **um commit por sessão** sobre `origin/main` com índice temporário (plumbing, não toca árvore de trabalho), empurra `rec/<handle>/<ts>`, abre PR e liga auto-merge **(verificar: auto-merge com a proteção de branch do banco)** | Nenhuma humana. Check obrigatório `kb-check --lane records`: só adições, caminho no padrão, frontmatter OKF + profile válido, `generated.by` coerente com o autor, secret scan limpo, ≤20 KB por arquivo |
+| **Conhecimento** | `bet.md`, spec, plan, slices, ADRs, `workspace.md`, metodologia, rituais, glossário, **records de reunião e transcrições redigidas** (`/rituals/`, `/transcripts/`), mudanças de `state` por `t0 gate` | todo o resto | Branch `bet/BET-NNN/<handle>` (ou `kb/<handle>/<tema>`) no `kb/` → PR | CODEOWNERS: dono da bet na pasta da bet, steward da metodologia em `/methodology/`, facilitador em `/cycles/*/rituals/`. Transcrição sempre com revisor humano confirmando a redação |
 | **Derivado** | Todo `index.md`, o `log.md` de cada bet (renderizado de `steps/`), `changeset.md`, as chaves derivadas dos slices (`state` depois de `ready`, `pr`, `audit`), e as chaves `jira:` escritas uma vez a partir dos registros `jira-linked` | gerado | Workflow `kb-render` no push para `main`, `concurrency: kb-render` (serializado), commitando como o App KB-writer, que é ator de bypass do ruleset **(verificar)** | O check de PR rejeita qualquer edição humana ou de agente nesses arquivos e chaves. O hook PreToolUse do plugin bloqueia localmente também |
 
 O `t0 log` da metodologia ("toda skill termina chamando") emite um registro `Step`, e o `log.md` da bet é a renderização desses registros. Assim 10 pessoas registram passo ao mesmo tempo sem disputar o mesmo arquivo.
@@ -406,7 +406,7 @@ Corpo com ≤20 linhas. Um `decision` que muda o contrato (spec, API, modelo de 
 
 ## 5. Um dia na vida
 
-Ana é Bet Owner da **BET-042 "limites diários de transferência"** no `payments` (6 repos). A Mob Elaboration já mergeou `bet.md`, `spec.md`, `plan.md` e três slices: `01-ledger-limits` (PAY-130, ledger), `02-api-limits` (PAY-131, api, depende do 01) e `03-web-limit-errors` (PAY-132, web, depende do 02). A Feature é PAY-123. No primeiro dia ela rodou `t0 install --user` e `t0 ws init payments`.
+Ana é Bet Owner da **BET-042 "limites diários de transferência"** no `payments` (6 repos). A daily do pod já mergeou `bet.md`, `spec.md`, `plan.md` e três slices: `01-ledger-limits` (PAY-130, ledger), `02-api-limits` (PAY-131, api, depende do 01) e `03-web-limit-errors` (PAY-132, web, depende do 02). A Feature é PAY-123. No primeiro dia ela rodou `t0 install --user` e `t0 ws init payments`.
 
 **Começo comum, qualquer ferramenta:**
 

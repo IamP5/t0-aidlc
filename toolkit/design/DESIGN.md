@@ -73,3 +73,15 @@ Every mutating command returns a `Plan`, prints it, and supports `--dry-run`. Ef
 | Records auto-merge | bank branch protection unverified | security review; fallback = hourly batch PR |
 | Digest/metrics/adoption reports | need telemetry sources | painel do pod Insights |
 | Cross-agent eval runner (Copilot CLI, kiro-cli) | Kiro headless needs paid key | key + Copilot CLI policy |
+
+## v2 changes (lean methodology, 2026-10-28)
+
+The team found v1 bureaucratic. `methodology/v2-brief.md` is the source; these items override the sections above where they conflict.
+
+- Gates: only three human decisions, `aposta`, `spec` and `degrau`, written as `t0 gate aposta|spec|degrau <ref>`. G0 to G8 are gone. Slice states after `ready` stay derived by `kb-render` from CI and PR events.
+- Bet lanes: `rapida` (one slice, no spec, the slice body carries "atual / esperado / não muda") and `bet`. There are no bet types. Tier 2 covers public surfaces.
+- Profile types kept: Idea, Bet, Spec (plan as an optional section), Slice, ADR, Ritual Record, Transcript, Harness Item, Product, Adoption Report, Policy, Template, Person, Role, Rotation, Workspace, Glossary Term, Step, Log, Eval Suite, Metric Snapshot. Removed: Plan, Assessment, Bugfix, Cycle Record, Accountability, PI Outcome, Contract.
+- Idea gets `prototype` fields: `verdict: segue|ajusta|mata`, `prototype_ref`, `decided_at`. Command: `t0 idea prototype <IDEA> --verdict ...`.
+- Rituals: `daily-time`, `daily-pod`, `demo-retro`, plus external `pi`. `ritual <slug> open|close` stays generic. There is no Betting closer and no archetype checks.
+- Roles: Lead/AIVA, Bet Owner, Builder, Harness Keeper (rotation), Flow Steward (rotation). Rotation concepts exist only for Harness Keeper and Flow Steward.
+- Pods: `dev-tooling`, `paco`, `portal-metricas`, used as product slugs in the template.
