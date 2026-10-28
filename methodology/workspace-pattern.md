@@ -400,7 +400,7 @@ generated: { by: claude-code/opus-5.5, at: 2026-10-27T11:15:02-03:00 }
 on_behalf_of: human:ana
 ```
 
-Corpo com ≤20 linhas. Um `decision` que muda o contrato (spec, API, modelo de dados) tem que virar ADR na raia de conhecimento. A skill `kb-record` puxa isso, e a Harness Retro revisa decisões não promovidas.
+Corpo com ≤20 linhas. Um `decision` que muda o contrato (spec, API, modelo de dados) tem que virar ADR na raia de conhecimento. A skill `kb-record` puxa isso, e a Harness Health revisa decisões não promovidas.
 
 ---
 
@@ -497,7 +497,7 @@ $ t0 slice start PAY-130
 | 1 | KB do workspace velho (dias sem sync) | Carimbo `kb=<sha> at=<hora>` no card. O SessionStart, o Session Start do Kiro e a task de folderOpen comparam com o `origin/main` buscado (timeout de 3 s) | Delta injetado. Offline, a primeira linha diz "snapshot do KB de 3 dias" |
 | 2 | Card velho numa ferramenta sem hook funcionando | `t0 doctor` e `ws status` mostram a idade. `t0 pr` recusa carimbar card com mais de 24 h sem `--force` | `t0 ws sync` |
 | 3 | AGENTS.md desligado no Claude (`CLAUDE.md` ponteiro ou `CLAUDE.local.md` sem `instructionFiles`) | O hook varre os ancestrais. O doctor checa `instructionFiles` | Hook injeta o card inteiro. Corrigir a config |
-| 4 | Agente trabalhou sem bet, ou com a bet errada | Skill de código recusa sem bet. Hook avisa branch ≠ `bet.json`. `t0 pr check` falha sem `Story`, avisa sem `KB-Context` ou com mais de 7 dias | Refazer com contexto. A Harness Retro revisa os avisos |
+| 4 | Agente trabalhou sem bet, ou com a bet errada | Skill de código recusa sem bet. Hook avisa branch ≠ `bet.json`. `t0 pr check` falha sem `Story`, avisa sem `KB-Context` ou com mais de 7 dias | Refazer com contexto. A Harness Health revisa os avisos |
 | 5 | Dois agentes no mesmo clone | `t0 slice start` recusa árvore suja. `ws status` lista branches trocadas com mudança pendente | `t0 bet start --isolate` |
 | 6 | Bet precisa de repo fora do workspace isolado | `ws status` compara o `repo` dos slices com as worktrees. `t0 pr` recusa repo fora da bet | `t0 bet start --isolate --repos …` de novo, ou trabalhar no workspace principal |
 | 7 | Sem acesso a um repo que a bet precisa | `ws init` grava o 403. O card marca `absent`. O hook bloqueia escrita em repo `absent` | Parear ou pedir acesso ao dono |
