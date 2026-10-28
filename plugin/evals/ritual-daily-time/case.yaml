@@ -1,0 +1,46 @@
+{
+ "schema_version": "1.1",
+ "name": "ritual-daily-time",
+ "description": "abre a daily do time.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 25,
+  "timeout_seconds": 600,
+  "prompt": "abre a daily do time."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-ritual",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "ritual",
+   "min": 1
+  },
+  {
+   "name": "ritual-open",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 ritual daily-time open",
+   "min": 1
+  },
+  {
+   "name": "digest-blockers-only",
+   "type": "llm",
+   "criteria": "Pass if the agent opened the daily do time, showed the digest (merges, stale reviews, blockers; saying the forge was not consulted is fine), and kept the daily to blockers and review requests, in Portuguese. Length is not a failure reason."
+  }
+ ]
+}

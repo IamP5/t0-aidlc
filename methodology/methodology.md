@@ -62,7 +62,7 @@ Convenções: KB é o repositório OKF do time (`t0-kb`). O toolkit `t0` junta s
 | Spec | Bet Owner; em Tier 2, também o Lead | Spec `approved`, `markers_open: 0`, `verified` de cada aprovador | PR do spec e dos slices (`t0 gate spec` no CI) |
 | Degrau | Lead/AIVA, quando os números saem | Adoption Report `passed`; Product com `adoption_stage` novo e `verified` | `gate degrau <produto>` |
 
-O `t0 gate` grava a decisão como PR no repo do KB, mudando `state` e acrescentando `verified: { by: human:<aprovador>, at: <data com offset> }`. Aprovar o PR é decidir. O histórico git do KB é a trilha de auditoria que o banco pede, e `t0 trace <BET>` gera para o auditor o JSON requisito → slice → PR → teste a partir do frontmatter. PR de spec tem o mesmo SLO do review de código.
+O `t0 gate` grava a decisão como PR no repo do KB, mudando `state`. Aprovar o PR é decidir: no merge, o `t0 ci` confere quem aprovou e só então grava `verified: { by: human:<aprovador>, at: <data com offset> }`. O histórico git do KB é a trilha de auditoria que o banco pede, e `t0 trace <BET>` gera para o auditor o JSON requisito → slice → PR → teste a partir do frontmatter. PR de spec tem o mesmo SLO do review de código.
 
 Kill é uma linha na Idea (veredito do protótipo) ou na Bet (`kb log <BET> kill "<motivo>"`). Bet morta conta como resultado, e o registro impede que a mesma ideia volte sem fato novo.
 
@@ -365,7 +365,7 @@ Decisões em aberto:
 
 ## 11. Passo → comando → artefato OKF
 
-A porta de entrada é uma skill só, `/t0`: ela entende o pedido, escolhe o playbook (ideia, rápida, bet, slice, harness, ritual) e chama as skills de passo. Cada skill é um `SKILL.md` descoberto pelas três ferramentas. Quando há base upstream (mattpocock-skills ou pstack), o `t0 gen` monta a skill no build a partir do texto upstream intacto mais um patch declarado; o desenho está em `toolkit/design/DESIGN.md` §7.
+A porta de entrada é uma skill só, `/t0`: ela entende o pedido, escolhe o playbook (ideia, rápida, bet, slice, harness, ritual) e chama as skills de passo. Cada skill é um `SKILL.md` descoberto pelas três ferramentas. As skills são escritas em pt-BR pelo time, tendo as do mattpocock-skills e do pstack como referência, e cada uma credita a sua em `metadata.credits`.
 
 | Passo | Comando | Determinístico via `t0` | Escreve (tipo OKF) |
 |---|---|---|---|
@@ -386,7 +386,6 @@ A porta de entrada é uma skill só, `/t0`: ela entende o pedido, escolhe o play
 | Rituais | `ritual <slug> open\|close` | abrir a daily do time imprime o status; fechar o Harness Health falha sem PR por item aceito; fechar a Demo grava o rodízio | Ritual Record; Harness Item; Rotation |
 | Transcrição | `ritual <slug> close --transcript <arquivo>` | `t0 transcript redact` antes do modelo; dry-run até o aval de LGPD | Transcript; Idea e ADR sem `verified` |
 | Erro repetido → sensor | `harness-fix <HI>` | escolhe o degrau da escada; PR em draft no repo certo | Harness Item `fixed` + `pr` |
-| Atualização upstream | `t0 upstream status\|pull` (Harness Keeper, toda semana) | compara o lock com o upstream; anchor de patch que quebrou falha o build e aponta a skill | PR em draft no toolkit; Harness Item para o que vale adotar |
 
 Só na CLI: `t0 setup` (instala o toolkit num repo: `AGENTS.md`, ponteiros, hooks, links das skills de verificação), `t0 kb find|check|get`, `t0 mcp`, `t0 context`, `t0 jira sync --reconcile` e `t0 doctor`.
 

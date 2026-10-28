@@ -1,0 +1,23 @@
+# Raia de conhecimento: a aprovação vem do dono do caminho.
+# Troque @t0-org/* pelos times reais do GHE. A última regra que casa vence.
+
+*                          @t0-org/t0-lead
+
+/methodology/              @t0-org/t0-lead
+/templates/                @t0-org/t0-harness-keeper
+/team/                     @t0-org/t0-lead
+/team/rotations/           @t0-org/t0-flow-steward
+/rituals/                  @t0-org/t0-flow-steward
+/transcripts/              @t0-org/t0-flow-steward
+/glossary/                 @t0-org/t0-builders
+/harness/                  @t0-org/t0-harness-keeper
+
+/products/dev-tooling/     @t0-org/t0-dev-tooling
+/products/paco/            @t0-org/t0-paco
+/products/portal-metricas/ @t0-org/t0-portal-metricas
+/products/exemplo/         @t0-org/t0-lead
+
+# Raia de registros e entrada de ideias: sem code owner.
+/ideas/
+/steps/
+**/steps/

@@ -16,8 +16,9 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Mapping
 
-from ..okf.document import Actor
+from ..okf.document import Actor, section
 from ..profile.spec import EventKind
+from ..profile.table import ACCEPTANCE
 from ..write import Plan, new_record
 from .port import IssueDraft, IssueKey, IssueKind, RemoteComment, RemoteIssue, Tracker, draft_hash
 
@@ -95,7 +96,7 @@ def _items(view: Any, kb_base_url: str = "") -> list[_Item]:
             labels = ("t0", f"tier-{sfm['tier']}") if sfm.get("tier") is not None else ("t0",)
             items.append(_Item(sfm["uid"], IssueDraft(
                 IssueKind.STORY, project, sfm["uid"], str(sfm.get("title", "")), str(sfm.get("description", "")),
-                tuple(sfm.get("acceptance") or ()), labels, bfm.get("jira"), kb_base_url + s.doc.path.value),
+                section(s.doc.body, ACCEPTANCE).bullets, labels, bfm.get("jira"), kb_base_url + s.doc.path.value),
                 sfm.get("jira"), bfm["uid"], tuple(by_name.get(d, d) for d in sfm.get("depends_on") or ())))
     return items
 
@@ -117,6 +118,10 @@ def plan_sync(view: Any, remote: RemoteSnapshot, *, kb_base_url: str = "") -> Sy
     drift: list[str] = []
     for it in items:
         r = remote.issues.get(it.uid)
+        if r is None and it.known_key:
+            actions.append(SyncAction(ActionKind.CONFLICT, it.uid, it.known_key, dedup=f"conflict:{it.uid}:{it.known_key}",
+                                      reason_pt=f"KB tem {it.known_key}, o Jira não acha"))
+            continue
         if r is None:
             actions.append(SyncAction(ActionKind.CREATE, it.uid, None, it.draft, it.parent_uid, dedup=f"create:{it.uid}"))
             continue

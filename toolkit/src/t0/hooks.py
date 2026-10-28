@@ -37,7 +37,8 @@ class HookSpec:
     kiro: tuple[str, str] | None        # (event name, matcher)  -- Kiro schema inferred, verify
 
 
-CLAUDE_TOOL_MATCHER = "Bash|Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob"
+CLAUDE_TOOL_MATCHER = "Bash|Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|mcp__.*"
+_PR_TOOL_SUFFIXES = ("create_pull_request", "merge_pull_request", "update_pull_request")
 
 HOOKS: tuple[HookSpec, ...] = (
     HookSpec(Event.SESSION_START, ("SessionStart", "startup|resume|clear|compact"), "sessionStart", ("sessionStart", "")),
@@ -135,6 +136,49 @@ def check_git(argv: list[str]) -> GitVerdict:
     return GitVerdict(True, "")
 
 
+# ------------------------------------------------------------------ PR guard (gh CLI and GitHub MCP)
+
+_DRAFT_ONLY = "todo PR nasce e fica em draft; marcar pronto, aprovar e fazer merge são do humano ou do CI"
+
+
+def check_gh(argv: list[str]) -> GitVerdict:
+    """Blocks `gh pr ready` (but not `--undo`), `gh pr merge`, `gh pr review --approve|-a`
+    and `gh pr create` without `--draft|-d`."""
+    if len(argv) < 3 or argv[1] != "pr":
+        return GitVerdict(True, "")
+    sub, args = argv[2], argv[3:]
+    if sub == "ready" and "--undo" not in args:
+        return GitVerdict(False, f"`gh pr ready` bloqueado: {_DRAFT_ONLY}")
+    if sub == "merge":
+        return GitVerdict(False, f"`gh pr merge` bloqueado: {_DRAFT_ONLY}")
+    if sub == "review" and any(a in ("--approve", "-a") or a.startswith("--approve=") for a in args):
+        return GitVerdict(False, f"`gh pr review --approve` bloqueado: {_DRAFT_ONLY}")
+    if sub == "create" and not any(a in ("--draft", "-d", "--draft=true") for a in args):
+        return GitVerdict(False, f"`gh pr create` sem `--draft` bloqueado: {_DRAFT_ONLY}; rode de novo com `--draft`")
+    return GitVerdict(True, "")
+
+
+def _is_true(v: Any) -> bool:
+    return v is True or (isinstance(v, str) and v.lower() == "true")
+
+
+def _is_false(v: Any) -> bool:
+    return v is False or (isinstance(v, str) and v.lower() == "false")
+
+
+def check_pr_tool(tool_name: str, ti: Mapping[str, Any]) -> HookReply:
+    """GitHub MCP tools, matched by name suffix so every server prefix (`mcp__github__`,
+    `github-mcp-server-`, `@github/`) is covered."""
+    n = tool_name.lower()
+    if n.endswith("create_pull_request") and not _is_true(ti.get("draft")):
+        return HookReply.deny(f"`{tool_name}` sem `draft: true` bloqueado: {_DRAFT_ONLY}")
+    if n.endswith("merge_pull_request"):
+        return HookReply.deny(f"`{tool_name}` bloqueado: {_DRAFT_ONLY}")
+    if n.endswith("update_pull_request") and _is_false(ti.get("draft")):
+        return HookReply.deny(f"`{tool_name}` com `draft: false` bloqueado: {_DRAFT_ONLY}")
+    return HookReply.ok()
+
+
 # ------------------------------------------------------------------ shell guard
 
 _WRAPPERS = {"sudo", "command", "exec", "nohup", "time", "env"}
@@ -199,6 +243,10 @@ def check_shell(command: str, cwd: Path) -> HookReply:
             v = check_git(argv)
             if not v.allowed:
                 return HookReply.deny(v.reason_pt)
+        if prog == "gh":
+            v = check_gh(argv)
+            if not v.allowed:
+                return HookReply.deny(v.reason_pt)
         if prog != "t0" and any(_mentions_inbox(t, cwd) for t in argv):
             return HookReply.deny(_INBOX_REASON)
     return HookReply.ok()
@@ -255,15 +303,10 @@ def _frontmatter(text: str) -> dict[str, Any] | None:
 
 
 def derived_keys(type_name: str | None) -> frozenset[str]:
-    from .profile.table import STATEFUL_DERIVED, TYPES
+    from .profile.table import REGISTRY
 
-    for spec in TYPES:
-        if spec.name == type_name:
-            keys = {f.name for f in spec.fields if f.derived}
-            if spec.states is not None:
-                keys |= {f.name for f in STATEFUL_DERIVED}
-            return frozenset(keys)
-    return frozenset()
+    spec = REGISTRY.type_named(type_name) if type_name else None
+    return REGISTRY.derived_keys(spec) if spec else frozenset()
 
 
 Transform = Callable[[str], str | None]   # old text -> new text (None = unknown)
@@ -372,6 +415,8 @@ def pre_tool(ev: HookEvent) -> HookReply:
             if r.block:
                 return r
         return HookReply.ok()
+    if ev.tool_name and ev.tool_name.lower().endswith(_PR_TOOL_SUFFIXES):
+        return check_pr_tool(ev.tool_name, ev.tool_input)
     return check_read(paths)
 
 

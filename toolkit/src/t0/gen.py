@@ -2,10 +2,12 @@
 
 Hand-written inputs (the only sources):
   pyproject.toml                  version + description -> both plugin manifests
-  plugin/skills/<name>/SKILL.md   skills (copied verbatim to .kiro/skills/)
+  plugin/skills/<name>/SKILL.md   skills (Claude reads them in place; copied verbatim to .kiro/skills/)
+  plugin/agents/<name>.md         subagents in Claude format (read in place; Copilot .agent.md variant)
   plugin/.mcp.json                the one MCP server declaration (mcpServers)
+  plugin/evals/, README.md, THIRD_PARTY_NOTICES.md   read by nothing here; never written
   t0.hooks.HOOKS                  hook table -> Claude, Copilot and Kiro registrations
-  t0.profile.table                TYPES/GATES/BET_TYPES -> KB profile.md
+  t0.profile.table                TYPES/GATES/TRACKS -> KB profile.md
 
 `--check` renders to memory, diffs against disk and exits 1 listing drifted paths. Markdown outputs
 carry a generated marker; JSON manifests do not (strict validators reject unknown keys).
@@ -47,6 +49,15 @@ class Sources:
     mcp_servers: dict[str, Any]
     skills: dict[str, dict[str, str]]       # skill name -> {relative path -> text}
     now: str
+    agents: dict[str, Agent] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Agent:
+    name: str
+    description: str
+    tools: tuple[str, ...]                  # Claude tool names
+    body: str
 
 
 @dataclass(frozen=True)
@@ -75,8 +86,13 @@ class SourceError(Exception): ...
 
 
 def load_sources(ctx: GenContext) -> Sources:
-    py = tomllib.loads((Path(ctx.facts.get("pyproject", _TOOLKIT / "pyproject.toml"))).read_text(encoding="utf-8"))
-    project = py["project"]
+    pyproject = Path(ctx.facts.get("pyproject", _TOOLKIT / "pyproject.toml"))
+    if pyproject.is_file():
+        project = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]
+    else:
+        from importlib.metadata import metadata
+        meta = metadata("t0-toolkit")
+        project = {"version": meta["Version"], "description": meta["Summary"]}
     now = ctx.facts.get("now") or datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     if ctx.scope is Scope.KB:
         return Sources(project["version"], project["description"], {}, {}, now)
@@ -94,7 +110,25 @@ def load_sources(ctx: GenContext) -> Sources:
         d = skill_md.parent
         skills[d.name] = {str(p.relative_to(d)): p.read_text(encoding="utf-8")
                           for p in sorted(d.rglob("*")) if p.is_file()}
-    return Sources(project["version"], project["description"], mcp["mcpServers"], skills, now)
+    agents = {p.stem: _parse_agent(p) for p in sorted((src / "agents").glob("*.md"))}
+    return Sources(project["version"], project["description"], mcp["mcpServers"], skills, now, agents)
+
+
+def _parse_agent(path: Path) -> Agent:
+    import yaml
+
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---\n", 2)
+    meta = yaml.safe_load(parts[1]) if len(parts) == 3 and parts[0] == "" else None
+    if not isinstance(meta, dict) or not {"name", "description", "tools", "model"} <= meta.keys():
+        raise SourceError(f"{path}: frontmatter precisa de name, description, tools e model")
+    if meta["name"] != path.stem:
+        raise SourceError(f"{path}: name `{meta['name']}` difere do nome do arquivo")
+    tools = tuple(t.strip() for t in str(meta["tools"]).split(",") if t.strip())
+    unknown = [t for t in tools if t not in _COPILOT_TOOLS and not _MCP_TOOL.match(t)]
+    if unknown:
+        raise SourceError(f"{path}: tools sem mapeamento para Copilot: {', '.join(unknown)}")
+    return Agent(meta["name"], meta["description"], tools, parts[2])
 
 
 # ------------------------------------------------------------------ renderers
@@ -118,20 +152,30 @@ def agent_plugins_manifest(s: Sources) -> str:
                   "description": s.description, "author": {"name": "t0"}, "keywords": KEYWORDS})
 
 
-def claude_hooks(s: Sources) -> str:
+PLUGIN_HOOK_LAUNCHER = '"${CLAUDE_PLUGIN_ROOT}/hooks/t0-hook.sh"'
+
+
+def claude_hook_events(launcher: str | None = None) -> dict[str, list[dict[str, Any]]]:
+    """The Claude `hooks` map. The plugin passes its launcher (finds a workspace-pinned t0 and exports it
+    on session start); `t0 setup` merges the bare `t0 hook` map into a product repo's .claude/settings.json."""
     events: dict[str, list[dict[str, Any]]] = {}
     for h in HOOKS:
         if h.claude is None:
             continue
         event, matcher = h.claude
-        entry: dict[str, Any] = {"hooks": [{"type": "command", "command": _cmd(h.event.value), "timeout": HOOK_TIMEOUT_S}]}
+        cmd = f"{launcher} {h.event.value}" if launcher else _cmd(h.event.value)
+        entry: dict[str, Any] = {"hooks": [{"type": "command", "command": cmd, "timeout": HOOK_TIMEOUT_S}]}
         if matcher:
             entry = {"matcher": matcher, **entry}
         events.setdefault(event, []).append(entry)
-    return _json({"hooks": events})
+    return events
 
 
-def copilot_hooks(s: Sources) -> str:
+def claude_hooks(s: Sources | None = None) -> str:
+    return _json({"hooks": claude_hook_events(PLUGIN_HOOK_LAUNCHER)})
+
+
+def copilot_hooks(s: Sources | None = None) -> str:
     events: dict[str, list[dict[str, Any]]] = {}
     for h in HOOKS:
         if h.copilot is None:
@@ -142,7 +186,7 @@ def copilot_hooks(s: Sources) -> str:
     return _json({"version": 1, "hooks": events})
 
 
-def kiro_hooks(s: Sources) -> str:
+def kiro_hooks(s: Sources | None = None) -> str:
     hooks = [{"name": f"t0 {h.event.value}", "event": h.kiro[0], **({"matcher": h.kiro[1]} if h.kiro[1] else {}),
               "command": _cmd(h.event.value, Tool.KIRO), "timeout": HOOK_TIMEOUT_S}
              for h in HOOKS if h.kiro is not None]
@@ -170,6 +214,31 @@ def kiro_steering(s: Sources) -> str:
             "#[[file:.t0/context.md]]\n")
 
 
+# Claude tool name -> Copilot custom-agent tool alias (docs.github.com custom-agents-configuration).
+# None: no Copilot alias; skills load by description there (unverified).
+_COPILOT_TOOLS: dict[str, str | None] = {
+    "Read": "read", "Grep": "search", "Glob": "search", "Edit": "edit", "Write": "edit", "MultiEdit": "edit",
+    "NotebookEdit": "edit", "Bash": "execute", "WebFetch": "web", "WebSearch": "web", "TodoWrite": "todo",
+    "Skill": None,
+}
+_MCP_TOOL = re.compile(rf"^mcp__plugin_{PLUGIN_NAME}_(?P<server>.+?)__(?P<tool>\w+)$")
+
+
+def _copilot_tool(name: str) -> str | None:
+    m = _MCP_TOOL.match(name)
+    return f"{m['server']}/{m['tool']}" if m else _COPILOT_TOOLS[name]
+
+
+def copilot_agents(s: Sources) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for a in s.agents.values():
+        tools = list(dict.fromkeys(t for t in map(_copilot_tool, a.tools) if t))
+        out[f"{a.name}.agent.md"] = (
+            f"---\nname: {a.name}\ndescription: {json.dumps(a.description, ensure_ascii=False)}\n"
+            f"tools: {json.dumps(tools)}\n---\n{MARKER}\n{a.body}")
+    return out
+
+
 def kiro_skills(s: Sources) -> dict[str, str]:
     return {f"{name}/{rel}": text for name, files in s.skills.items() for rel, text in files.items()}
 
@@ -186,7 +255,7 @@ def _table(head: list[str], rows: list[list[object]]) -> list[str]:
 
 
 def profile_md(s: Sources) -> str:
-    from .profile.table import BET_TYPES, COMMON_FIELDS, GATES, PROFILE, PROFILE_VERSION, STATEFUL_DERIVED, TYPES
+    from .profile.table import COMMON_FIELDS, GATES, PROFILE, PROFILE_VERSION, STATEFUL_DERIVED, TRACKS, TYPES
 
     def derived(t: Any) -> str:
         keys = [f.name for f in t.fields if f.derived] + ([f.name for f in STATEFUL_DERIVED] if t.states else [])
@@ -194,7 +263,7 @@ def profile_md(s: Sources) -> str:
 
     lines = [
         "---", "type: OKF Profile", f'title: "Profile {PROFILE} {PROFILE_VERSION}"',
-        'description: "Tipos, chaves, estados, gates e tipos de bet do profile t0-team; gerado pelo t0 gen."',
+        'description: "Tipos, chaves, estados, gates e trilhas do profile t0-team; gerado pelo t0 gen."',
         "uid: profile-t0-team", "owner: process:t0-gen", "tags: [profile, gerado]",
         f'generated: {{ by: process:t0-gen, at: "{s.now}" }}',
         f"profile: {PROFILE}", f'profile_version: "{PROFILE_VERSION}"',
@@ -212,10 +281,10 @@ def profile_md(s: Sources) -> str:
     lines += _table(["gate", "nome", "alvo", "checks", "quem escreve"],
                     [[g.id, g.title_pt, g.target_type, ", ".join(c.value for c in g.checks) or "-", g.writer.value]
                      for g in GATES])
-    lines += ["", "## Tipos de bet", ""]
-    lines += _table(["tipo", "gates", "artefatos", "apetite máximo", "tier padrão", "eval"],
+    lines += ["", "## Trilhas", ""]
+    lines += _table(["trilha", "gates", "artefatos", "apetite máximo", "tier padrão", "eval"],
                     [[b.name, ", ".join(b.gates), ", ".join(b.artifacts), b.appetite_max, b.tier_default,
-                      "sim" if b.eval_required else "não"] for b in BET_TYPES])
+                      "sim" if b.eval_required else "não"] for b in TRACKS])
     return "\n".join(lines) + "\n"
 
 
@@ -229,6 +298,7 @@ TARGETS: tuple[Target, ...] = (
     Target(Tool.COPILOT, Scope.PLUGIN, ".github/hooks/t0.json", copilot_hooks),
     Target(Tool.COPILOT, Scope.PLUGIN, ".vscode/mcp.json", vscode_mcp),
     Target(Tool.COPILOT, Scope.PLUGIN, ".github/copilot-instructions.md", copilot_instructions),
+    Target(Tool.COPILOT, Scope.PLUGIN, "com.github.copilot/agents/", copilot_agents),
     Target(Tool.KIRO, Scope.PLUGIN, ".kiro/steering/t0.md", kiro_steering),
     Target(Tool.KIRO, Scope.PLUGIN, ".kiro/settings/mcp.json", mcp_portable),
     Target(Tool.KIRO, Scope.PLUGIN, ".kiro/hooks/t0.json", kiro_hooks),

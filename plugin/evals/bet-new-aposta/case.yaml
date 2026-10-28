@@ -1,0 +1,53 @@
+{
+ "schema_version": "1.1",
+ "name": "bet-new-aposta",
+ "description": "a IDEA-0004 passou no protótipo. Abre a bet, trilha bet, apetite de 3 dias, no springboot-plugin.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 40,
+  "timeout_seconds": 600,
+  "prompt": "a IDEA-0004 passou no protótipo. Abre a bet, trilha bet, apetite de 3 dias, no springboot-plugin."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-bet-new",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "bet-new",
+   "min": 1
+  },
+  {
+   "name": "new-bet",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 new bet",
+   "min": 1
+  },
+  {
+   "name": "gate-aposta",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 gate aposta",
+   "min": 1
+  },
+  {
+   "name": "asks-or-fills-hypothesis",
+   "type": "llm",
+   "criteria": "Pass if the bet carries a hypothesis and kill criteria (asked or proposed explicitly to the user) and the agent stops at the aposta PR in Portuguese, without marking anything approved."
+  }
+ ]
+}

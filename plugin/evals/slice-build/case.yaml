@@ -1,0 +1,76 @@
+{
+ "schema_version": "1.1",
+ "name": "slice-build",
+ "description": "pega o slice SBP-2 e implementa.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 80,
+  "timeout_seconds": 900,
+  "prompt": "pega o slice SBP-2 e implementa."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-slice-build",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "slice-build",
+   "min": 1
+  },
+  {
+   "name": "dor",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 slice (dor|start) SBP-2",
+   "min": 1
+  },
+  {
+   "name": "runs-tests",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "node --test",
+   "min": 1
+  },
+  {
+   "name": "draft-only",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "(^|[;&|]\\s*)gh pr create(?![^;&|\\n]*(--draft|\\s-d\\b))",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "audit-committed",
+   "type": "regex",
+   "pattern": "\\.audit/SBP-2\\.tsv",
+   "match": "contains",
+   "target": "trace"
+  },
+  {
+   "name": "no-verify-chain",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "slice-verify",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "draft-pr-ptbr",
+   "type": "llm",
+   "criteria": "Pass if the agent implemented --version with a test on a SBP-2-<slug> branch of springboot-plugin with tests green, and ended by presenting the draft PR (a local branch is fine with no forge) in Portuguese, naming the Jira key SBP-2 and the Tier. Fail if it merged, marked ready or pushed."
+  }
+ ]
+}

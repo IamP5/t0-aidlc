@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "t0-kb": {
+      "command": "t0",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

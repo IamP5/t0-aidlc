@@ -1,0 +1,39 @@
+{
+ "schema_version": "1.1",
+ "name": "harness-fix",
+ "description": "resolve o HI-0002 no springboot-plugin.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 60,
+  "timeout_seconds": 900,
+  "prompt": "resolve o HI-0002 no springboot-plugin."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-harness-fix",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "harness-fix",
+   "min": 1
+  },
+  {
+   "name": "highest-rung",
+   "type": "llm",
+   "criteria": "Pass if the agent picked a rung of the harness ladder for HI-0002 with a reason (preferring a check that fails over a doc line), proved the check catches the real past mistake, and left one draft PR (local branch acceptable) without merging, in Portuguese."
+  }
+ ]
+}

@@ -1,0 +1,51 @@
+{
+ "schema_version": "1.1",
+ "name": "verify-setup",
+ "description": "cria a skill de verificação do springboot-plugin pra gente usar no slice-verify.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 60,
+  "timeout_seconds": 900,
+  "prompt": "cria a skill de verificação do springboot-plugin pra gente usar no slice-verify."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-verify-setup",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "verify-setup",
+   "min": 1
+  },
+  {
+   "name": "neutral-path",
+   "type": "file_exists",
+   "path": "springboot-plugin/.t0/skills/verify-*/SKILL.md",
+   "exists": true
+  },
+  {
+   "name": "no-cursor",
+   "type": "file_exists",
+   "path": "springboot-plugin/.cursor/**",
+   "exists": false
+  },
+  {
+   "name": "proved-once",
+   "type": "llm",
+   "criteria": "Pass if the generated verify skill has launch/drive/evidence steps for this CLI and the agent ran it once against the real repo, reporting the result in Portuguese."
+  }
+ ]
+}

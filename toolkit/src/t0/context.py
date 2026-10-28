@@ -12,9 +12,12 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Mapping
+
+from .okf.document import section
+from .profile.table import ACCEPTANCE
 
 AGENTS_BUDGET = 8000        # root AGENTS.md card, <=150 lines
 AGENTS_MAX_LINES = 150
@@ -125,9 +128,6 @@ class CardFacts:
     stamp: Stamp
     ws: WorkspaceFacts | None
     bet: BetFacts | None
-    skills: tuple[str, ...] = field(default=(
-        "`/bet-use` troca a bet ativa", "`/slice-build` implementa o slice ativo",
-        "`/kb-record` registra progresso ou decisão", "`/kb-search` procura no KB"))
 
 
 # ------------------------------------------------------------------ sections
@@ -152,7 +152,7 @@ def _header(f: CardFacts) -> str:
 def _bet(f: CardFacts, max_ac: int, max_intent: int) -> str:
     b = f.bet
     if b is None:
-        return "## Bet ativa\nNenhuma bet resolvida. Pergunte qual bet, ou rode `/bet-use`. Skills de código se recusam sem bet."
+        return "## Bet ativa\nNenhuma bet resolvida. Pergunte qual bet (`t0 bet use <BET|KEY>`), ou abra uma com `bet-new`. Skills de código se recusam sem bet."
     kb = _kb(f.ws).rstrip("/") + b.kb_path
     lines = [f"## Bet ativa: {b.id} {b.title}",
              f"Estado `{b.state}`, apetite {b.appetite}, ciclo até {b.cycle_end}." + (f" Feature {b.jira}." if b.jira else "")]
@@ -203,8 +203,27 @@ def _kb_map(f: CardFacts) -> str:
                       f"- `{kb}/products/{p}/bets/` bets", f"- `{kb}/methodology/` metodologia, rituais, políticas"])
 
 
+ENTRY_SKILL = "`/t0` porta de entrada: escolhe o playbook e chama as skills de passo"
+NO_BET_SKILLS = ("`bet-new` abre uma bet a partir de uma ideia", "`idea-capture` registra uma ideia nova")
+BET_STATE_SKILLS: Mapping[str, tuple[str, ...]] = {
+    "proposed": ("`grill` afia a bet antes da aposta",),
+    "active": ("`bet-spec` escreve o spec", "`bet-slice` corta o spec em slices",
+               "`slice-build <KEY>` constrói um slice pronto"),
+}
+STORY_SKILLS = ("`slice-build` constrói a story ativa", "`slice-verify` revisa o PR da story")
+
+
+def card_skills(bet: BetFacts | None) -> tuple[str, ...]:
+    """`/t0` first, then the step skills that fit the card's state (names from plugin/skills/)."""
+    if bet is None:
+        return (ENTRY_SKILL, *NO_BET_SKILLS)
+    if bet.story and bet.state == "active":
+        return (ENTRY_SKILL, *STORY_SKILLS)
+    return (ENTRY_SKILL, *BET_STATE_SKILLS.get(bet.state, NO_BET_SKILLS))
+
+
 def _skills(f: CardFacts) -> str:
-    return "\n".join(["## Skills"] + [f"- {s}" for s in f.skills[:8]])
+    return "\n".join(["## Skills"] + [f"- {s}" for s in card_skills(f.bet)])
 
 
 def _sections(f: CardFacts, max_ac: int, max_intent: int) -> list[tuple[Section, str]]:
@@ -308,7 +327,7 @@ def facts_from_view(view: Any, bet: ResolvedBet | None) -> BetFacts | None:
             slices.append((opath, SliceFacts(
                 uid=name, title=str(ofm.get("title", name)), repo=str(ofm.get("repo", "?")),
                 state=str(ofm.get("state", "proposed")), jira=ofm.get("jira"), pr=ofm.get("pr"),
-                depends_on=tuple(ofm.get("depends_on") or ())), tuple(ofm.get("acceptance") or ())))
+                depends_on=tuple(ofm.get("depends_on") or ())), section(other.doc.body, ACCEPTANCE).bullets))
     slices.sort(key=lambda t: t[0])
     active = next(((s, ac) for _, s, ac in slices if bet.story and s.jira == bet.story), None)
     return BetFacts(

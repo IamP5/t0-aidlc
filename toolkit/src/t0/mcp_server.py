@@ -19,7 +19,7 @@ INSTRUCTIONS = (
     "KB = t0-kb (OKF). Sem card t0 no contexto, chame kb_context primeiro (com a chave Jira da tarefa, "
     "se houver). Se o KB estiver indisponível, pare e diga 'KB indisponível'. "
     "Nunca edite index.md, log.md, changeset.md nem chaves derivadas (state, status, verified, jira, pr): "
-    "estado muda por gate (skill `gate`), o resto o kb-render deriva. "
+    "estado muda por gate (`t0 gate`), o resto o kb-render deriva. "
     "Para registrar progresso, decisão, bloqueio ou handoff use kb_record; texto com segredo ou dado "
     "pessoal é recusado. Mudança de conhecimento (spec, plan, ADR) é PR revisado: edite no clone do KB e "
     "rode `t0 kb propose`. Use kb_find e kb_get para ler; bet_detect diz qual bet está ativa e por qual regra. "
@@ -96,9 +96,12 @@ def build_server(kb_dir: Path | None = None, *, read_only: bool = False) -> MCPS
                 raise ToolError(f"recusado: texto contém {', '.join(kinds)}; remova e tente de novo")
             from .profile.spec import EventKind
             from .view import Ref
+            from .write import Refusal
 
             kb = _kb(kb_dir)
             plan = kb.record(EventKind(kind), text, bet=Ref(bet) if bet else None, story=story, refs=tuple(refs or ()))
+            if isinstance(plan, Refusal):
+                raise ToolError("recusado: " + "; ".join(plan.reasons_pt))
             applied = kb.apply(plan)
             return {"spooled": [str(p) for p in applied.spooled], "push": "pending"}
 

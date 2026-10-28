@@ -25,8 +25,9 @@ notas
 """
 
 
-def _c(path, fm, derived=None):
-    return Concept(Document(BundlePath(path), fm, "", True, ""), None, derived or {}, ())
+def _c(path, fm, derived=None, acceptance=()):
+    body = "## Critérios de aceite\n\n" + "".join(f"- {a}\n" for a in acceptance)
+    return Concept(Document(BundlePath(path), fm, body, True, ""), None, derived or {}, ())
 
 
 class FakeKB:
@@ -51,12 +52,12 @@ class FakeKB:
 BET = "/products/payments/bets/BET-042"
 KB = FakeKB([
     _c(f"{BET}/bet.md", {"type": "Bet", "title": "Limites"}, {"jira": "PAY-123", "state": "active"}),
-    _c(f"{BET}/slices/01-ledger-limits.md", {"type": "Slice", "repo": "ledger", "acceptance": ["a"]},
-       {"jira": "PAY-130", "state": "ready"}),
-    _c(f"{BET}/slices/02-api-limits.md", {"type": "Slice", "repo": "api", "acceptance": ["b"]},
-       {"jira": "PAY-131", "state": "ready"}),
-    _c(f"{BET}/slices/03-web.md", {"type": "Slice", "repo": "web", "acceptance": ["c"]},
-       {"jira": "PAY-132", "state": "proposed"}),
+    _c(f"{BET}/slices/01-ledger-limits.md", {"type": "Slice", "repo": "ledger"},
+       {"jira": "PAY-130", "state": "ready"}, ["a"]),
+    _c(f"{BET}/slices/02-api-limits.md", {"type": "Slice", "repo": "api"},
+       {"jira": "PAY-131", "state": "ready"}, ["b"]),
+    _c(f"{BET}/slices/03-web.md", {"type": "Slice", "repo": "web"},
+       {"jira": "PAY-132", "state": "proposed"}, ["c"]),
 ])
 
 
@@ -109,9 +110,12 @@ def test_detect_chain_order(workspace):
     assert ws.detect(api, {}).rule == "none"
     (workspace / ".t0/bet.json").write_text(json.dumps({"bet": "BET-042", "active_story": "PAY-131"}))
     assert ws.detect(api, {}) == ws.Detection("BET-042", "PAY-131", "bet.json", None)
-    git(api, "switch", "-qc", "bet/BET-051/PAY-200-x")
-    assert ws.detect(api, {}) == ws.Detection("BET-051", "PAY-200", "branch", None)
-    assert ws.divergence(api, {}) == "branch é BET-051, card é BET-042: rode `t0 bet use BET-051`"
+    git(api, "switch", "-qc", "PAY-131-x")
+    assert ws.detect(api, {}) == ws.Detection("BET-042", "PAY-131", "branch", None)
+    assert ws.divergence(api, {}) is None
+    git(api, "switch", "-qc", "PAY-200-x")
+    assert ws.detect(api, {}) == ws.Detection(None, "PAY-200", "branch", None)
+    assert ws.divergence(api, {}) == "branch é PAY-200, card é BET-042: rode `t0 bet use PAY-200`"
     assert ws.detect(api, {"T0_BET": "BET-007"}).rule == "env"
 
 
@@ -132,14 +136,35 @@ def test_slice_start_creates_branch_then_noop(workspace):
     w = ws.locate(workspace)
     plan = ws.slice_start(KB, w, "PAY-131")
     assert isinstance(plan, Plan), plan
-    assert ws.current_branch(workspace / "api") == "bet/BET-042/PAY-131-api-limits"
+    assert ws.current_branch(workspace / "api") == "PAY-131-api-limits"
     assert "já em" in ws.slice_start(KB, w, "PAY-131").messages_pt[0]
+
+
+def test_slice_start_from_origin_never_writes_git_config(workspace):
+    api = workspace / "api"
+    git(workspace, "clone", "-q", "--bare", str(api), str(workspace / "api-origin.git"))
+    git(api, "remote", "add", "origin", str(workspace / "api-origin.git"))
+    git(api, "fetch", "-q", "origin")
+    config = (api / ".git/config").read_bytes()
+    plan = ws.slice_start(KB, ws.locate(workspace), "PAY-131")
+    assert isinstance(plan, Plan), plan
+    assert ws.current_branch(api) == "PAY-131-api-limits"
+    assert (api / ".git/config").read_bytes() == config
 
 
 def test_slice_start_refusals(workspace):
     w = ws.locate(workspace)
     assert any("DoR" in r for r in ws.slice_start(KB, w, "PAY-132").reasons_pt)
+    bare = FakeKB([_c(f"{BET}/slices/04-x.md", {"type": "Slice", "repo": "api"}, {"jira": "PAY-133", "state": "ready"})])
+    assert ws.slice_start(bare, w, "PAY-133").reasons_pt == ("DoR: falta a seção '## Critérios de aceite'",)
     assert ws.slice_start(KB, w, "PAY-130").reasons_pt == ("repo `ledger` ausente no workspace",)
     (workspace / "api/dirty.txt").write_text("x")
     assert "árvore suja" in ws.slice_start(KB, w, "PAY-131").reasons_pt[0]
     assert ws.current_branch(workspace / "api") == "main"
+
+
+def test_detect_bet_resolves_bet_from_story_branch(workspace):
+    api = workspace / "api"
+    git(api, "switch", "-qc", "PAY-131-api-limits")
+    resolved = ws.detect_bet(KB, api)
+    assert resolved.bet.doc.path.value == f"{BET}/bet.md" and resolved.story == "PAY-131" and resolved.rule == "branch"

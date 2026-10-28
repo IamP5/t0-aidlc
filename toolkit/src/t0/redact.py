@@ -7,6 +7,8 @@ Boundary rules:
   - `Redacted` can only be produced by redact(); no code path persists unredacted text as Redacted.
   - Off-record spans: text between '[fora do registro]' and '[/fora do registro]' (case-insensitive,
     may span lines) is removed; only their count is kept. An unclosed marker removes to the end.
+    An utterance whose text opens with "fora do registro" plus ':' or ',' (`[09:34] Ana: fora do
+    registro: ...`) is one span too: the timestamp and speaker stay, the rest of the line goes.
   - Rules run on the off-record-free text; findings never overlap (earlier rule wins), SECRET first.
 """
 from __future__ import annotations
@@ -183,11 +185,15 @@ def scan(text: str, rules: tuple[Rule, ...] = DEFAULT_RULES) -> tuple[Finding, .
 _OFF_RECORD = re.compile(
     re.escape(OFF_RECORD_OPEN) + r"[\s\S]*?(?:" + re.escape(OFF_RECORD_CLOSE) + r"|\Z)", re.IGNORECASE)
 _STRAY_CLOSE = re.compile(re.escape(OFF_RECORD_CLOSE), re.IGNORECASE)
+_OFF_RECORD_UTTERANCE = re.compile(
+    r"^(?P<head>[ \t]*(?:\[[^\]\n]*\][ \t]*)?(?:[^\n:\[\]]{1,60}:[ \t]*)?)fora do registro[ \t]*[:,][^\n]*",
+    re.IGNORECASE | re.MULTILINE)
 
 
 def _drop_off_record(raw: str) -> tuple[str, int]:
     text, spans = _OFF_RECORD.subn(OFF_RECORD_PLACEHOLDER, raw)
-    return _STRAY_CLOSE.sub("", text), spans
+    text, inline = _OFF_RECORD_UTTERANCE.subn(lambda m: m["head"] + OFF_RECORD_PLACEHOLDER, text)
+    return _STRAY_CLOSE.sub("", text), spans + inline
 
 
 def redact(raw: str, rules: tuple[Rule, ...] = DEFAULT_RULES) -> tuple[Redacted, RedactionReport]:

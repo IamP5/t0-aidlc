@@ -58,3 +58,19 @@ def test_bet_detect_reads_marker(tmp_path, monkeypatch):
     result = run(go)
     assert not result.is_error
     assert json.loads(result.content[0].text) == {"bet": "BET-042", "story": None, "rule": "bet.json", "product": "payments"}
+
+
+def test_kb_record_turns_refusal_into_tool_error(tmp_path, monkeypatch):
+    from test_check import build
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("T0_BET", raising=False)
+    monkeypatch.chdir(tmp_path)
+    kb = build(tmp_path)
+
+    async def go():
+        async with Client(build_server(kb)) as c:
+            return await c.call_tool("kb_record", {"kind": "progress", "text": "andou", "bet": "BET-999"})
+    result = run(go)
+    assert result.is_error
+    assert result.content[0].text.endswith("recusado: bet 'BET-999' não encontrada no KB")

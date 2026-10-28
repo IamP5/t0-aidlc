@@ -18,10 +18,12 @@ from typing import Any, Mapping
 import yaml
 
 from .context import ResolvedBet, WorkspaceFacts
+from .okf.document import section
+from .profile.table import ACCEPTANCE
 from .view import Ref
 from .write import Plan, Refusal
 
-BRANCH_RE = re.compile(r"^bet/(BET-\d+)/([A-Z][A-Z0-9]+-\d+)-")
+BRANCH_RE = re.compile(r"^([A-Z][A-Z0-9]+-\d+)-")
 BET_ID_RE = re.compile(r"^BET-\d+$")
 JIRA_KEY_RE = re.compile(r"\b([A-Z][A-Z0-9]+)-(\d+)\b")
 WORKSPACE_JSON = Path(".t0/workspace.json")
@@ -178,28 +180,41 @@ def detect(cwd: Path, env: Mapping[str, str] | None = None) -> Detection:
         return Detection(env["T0_BET"], env.get("T0_STORY") or None, "env", product)
     m = BRANCH_RE.match(current_branch(cwd) or "")
     if m:
-        return Detection(m.group(1), m.group(2), "branch", product)
+        story = m.group(1)
+        return Detection(_marker_bet_for(marker, story), story, "branch", product)
     if marker:
         data = marker[1]
         return Detection(data.get("bet"), data.get("active_story"), "bet.json", product)
     return Detection(None, None, "none", product)
 
 
+def _marker_bet_for(marker: tuple[Path, Mapping[str, Any]] | None, story: str) -> str | None:
+    """The card's bet, only when the card lists this story; otherwise the KB resolves it from the Slice."""
+    if not marker:
+        return None
+    data = marker[1]
+    return data.get("bet") if story in (*(data.get("stories") or ()), data.get("active_story")) else None
+
+
 def divergence(cwd: Path, env: Mapping[str, str] | None = None) -> str | None:
-    """Session-start warning when the branch names a different bet than .t0/bet.json (§2.5)."""
+    """Session-start warning when the branch's story is not on the .t0/bet.json card (§2.5)."""
     d = detect(cwd, env)
     marker = read_bet_marker(cwd)
-    if d.rule == "branch" and marker and marker[1].get("bet") and marker[1]["bet"] != d.bet:
-        return f"branch é {d.bet}, card é {marker[1]['bet']}: rode `t0 bet use {d.bet}`"
+    if d.rule == "branch" and d.bet is None and marker and marker[1].get("bet"):
+        return f"branch é {d.story}, card é {marker[1]['bet']}: rode `t0 bet use {d.story}`"
     return None
 
 
 def detect_bet(kb: Any, cwd: Path, *, task_text: str | None = None) -> ResolvedBet | None:
     """Detection chain, then the bet concept from the KB view. task_text (Jira lookup) is v0.2."""
     d = detect(cwd)
-    if d.bet is None:
+    if d.bet is not None:
+        concept = kb.get(Ref(d.bet))
+    elif d.story is not None:
+        story = kb.get(Ref(d.story))
+        concept = kb.view().bet_of(story) if story is not None else None
+    else:
         return None
-    concept = kb.get(Ref(d.bet))
     return ResolvedBet(concept, d.story, d.rule) if concept is not None else None
 
 
@@ -261,14 +276,15 @@ def _slug(name: str) -> str:
 
 def slice_start(kb: Any, ws: Workspace, story: str) -> Plan | Refusal:
     """DoR from the slice concept; refuses dirty tree or absent repo; creates or switches to
-    bet/<BET>/<KEY>-<slug> from the default branch. Writes no KB record (PR_OPENED moves the state)."""
+    <KEY>-<slug> (DESIGN §2 Branches) from the default branch. Writes no KB record (PR_OPENED moves the state)."""
     if not JIRA_KEY_RE.fullmatch(story):
         return Refusal((f"chave Jira inválida: {story}",))
     c = kb.get(Ref(story))
     if c is None or _fm(c).get("type") != "Slice":
         return Refusal((f"nenhum slice com jira {story} no KB",))
     fm = _fm(c)
-    missing = [k for k in ("repo", "acceptance") if not fm.get(k)]
+    missing = [] if fm.get("repo") else ["repo"]
+    missing += [] if section(c.doc.body, ACCEPTANCE).bullets else ["a seção '## Critérios de aceite'"]
     if fm.get("state") not in ("ready", "building"):
         missing.append(f"state `ready` (está `{fm.get('state', 'proposed')}`; falta o gate)")
     if missing:
@@ -279,9 +295,8 @@ def slice_start(kb: Any, ws: Workspace, story: str) -> Plan | Refusal:
         return Refusal((f"repo `{repo}` ausente no workspace",))
     if _git(repo_dir, "status", "--porcelain").stdout.strip():
         return Refusal((f"árvore suja em `{repo}`: faça commit ou stash antes",))
-    bet_id = _bet_folder(c).rsplit("/", 1)[1]
     name = c.doc.path.value.rsplit("/", 1)[1].removesuffix(".md")
-    branch = f"bet/{bet_id}/{story}-{_slug(name)}"
+    branch = f"{story}-{_slug(name)}"
     if current_branch(repo_dir) == branch:
         return Plan(messages_pt=(f"já em {branch} ({repo})",))
     if _git(repo_dir, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}").returncode == 0:
@@ -289,7 +304,7 @@ def slice_start(kb: Any, ws: Workspace, story: str) -> Plan | Refusal:
     else:
         base = next((b for b in (f"origin/{ws.default_branch}", ws.default_branch)
                      if _git(repo_dir, "rev-parse", "--verify", "--quiet", b).returncode == 0), "HEAD")
-        p = _git(repo_dir, "switch", "-c", branch, base)
+        p = _git(repo_dir, "switch", "--no-track", "-c", branch, base)
     if p.returncode != 0:
         return Refusal((f"git falhou em `{repo}`: {p.stderr.strip()}",))
     return Plan(messages_pt=(f"{repo}: branch {branch}",))

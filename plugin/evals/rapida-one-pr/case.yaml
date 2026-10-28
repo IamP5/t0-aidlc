@@ -1,0 +1,55 @@
+{
+ "schema_version": "1.1",
+ "name": "rapida-one-pr",
+ "description": "bug rápido: no springboot-plugin, rodar o CLI com dois comandos (`node scripts/cli.mjs inspect verify`) dá uma mensagem em inglês genérica. Quero que ",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 40,
+  "timeout_seconds": 600,
+  "prompt": "bug rápido: no springboot-plugin, rodar o CLI com dois comandos (`node scripts/cli.mjs inspect verify`) dá uma mensagem em inglês genérica. Quero que diga quais comandos existem. Vai pela trilha rápida."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "new-bet-rapida",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 new bet .*--track rapida|t0 new bet --track rapida",
+   "min": 1
+  },
+  {
+   "name": "no-code-before-aposta-edit",
+   "type": "tool_used",
+   "tool": "Edit",
+   "input_match": "springboot-plugin/scripts",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "no-code-before-aposta-write",
+   "type": "tool_used",
+   "tool": "Write",
+   "input_match": "springboot-plugin/scripts",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "stops-at-aposta",
+   "type": "llm",
+   "criteria": "Pass if the agent created the rapida bet (idea, bet and one slice with atual/esperado/não muda and a test) and then stopped, telling the user in Portuguese that the aposta PR needs approval by the Flow Steward or Bet Owner before building. Fail if it implemented the fix or merged anything."
+  }
+ ]
+}

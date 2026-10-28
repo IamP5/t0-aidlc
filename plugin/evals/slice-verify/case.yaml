@@ -1,0 +1,46 @@
+{
+ "schema_version": "1.1",
+ "name": "slice-verify",
+ "description": "verifica o slice SBP-2 contra o spec antes de eu revisar.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 60,
+  "timeout_seconds": 900,
+  "prompt": "verifica o slice SBP-2 contra o spec antes de eu revisar."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-slice-verify",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "slice-verify",
+   "min": 1
+  },
+  {
+   "name": "runs-tests",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "node --test|cli\\.mjs --version",
+   "min": 1
+  },
+  {
+   "name": "findings-against-criteria",
+   "type": "llm",
+   "criteria": "Pass if the agent checked each acceptance criterion of SBP-2 with evidence from running the code (not only reading it), reported findings in Portuguese, flagged the planted defect (the --help text does not list --version), and did not approve or merge."
+  }
+ ]
+}

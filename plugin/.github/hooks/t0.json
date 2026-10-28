@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "t0 hook session-start --tool copilot",
+        "powershell": "t0 hook session-start --tool copilot",
+        "timeoutSec": 10
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "t0 hook prompt-submit --tool copilot",
+        "powershell": "t0 hook prompt-submit --tool copilot",
+        "timeoutSec": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "t0 hook pre-tool --tool copilot",
+        "powershell": "t0 hook pre-tool --tool copilot",
+        "timeoutSec": 10
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "t0 hook stop --tool copilot",
+        "powershell": "t0 hook stop --tool copilot",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

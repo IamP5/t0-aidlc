@@ -1,0 +1,55 @@
+{
+ "schema_version": "1.1",
+ "name": "architect-checkpoint",
+ "description": "antes do spec da BET-003, usa o architect: quero decidir onde a versão é lida (build-time no dist/ ou runtime do package.json).",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 40,
+  "timeout_seconds": 600,
+  "prompt": "antes do spec da BET-003, usa o architect: quero decidir onde a versão é lida (build-time no dist/ ou runtime do package.json)."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-architect",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "architect",
+   "min": 1
+  },
+  {
+   "name": "no-product-code-edit",
+   "type": "tool_used",
+   "tool": "Edit",
+   "input_match": "springboot-plugin/",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "no-product-code-write",
+   "type": "tool_used",
+   "tool": "Write",
+   "input_match": "springboot-plugin/",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "two-options-then-stop",
+   "type": "llm",
+   "criteria": "Pass if the agent presented at least two designs with trade-offs, recommended one, and ended its turn asking the user to approve before anything is implemented or written as final, in Portuguese. If any model labels appear, a single-family run is labelled same-family."
+  }
+ ]
+}

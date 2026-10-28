@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "t0-kb": {
+      "type": "stdio",
+      "command": "t0",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

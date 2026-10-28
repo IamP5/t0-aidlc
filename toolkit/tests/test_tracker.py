@@ -130,3 +130,13 @@ def test_file_tracker_workflow_and_intake(tracker):
     tracker.comment(key, "oi")
     assert [c.body_md for c in tracker.comments_since(key, None)] == ["oi"]
     assert tracker.intake("PAY", None) == ()
+
+
+def test_known_key_missing_from_tracker_is_a_conflict_not_a_create(tracker):
+    view = make_view({"bet-042": "PAY-21", "s-01": "PAY-22", "s-02": "PAY-23"})
+    plan = plan_sync(view, snapshot(tracker, view))
+    assert {a.kind for a in plan.actions if a.kb_uid in ("bet-042", "s-01", "s-02") and a.kind is not ActionKind.LINK} \
+        == {ActionKind.CONFLICT}
+    assert next(a for a in plan.actions if a.kb_uid == "bet-042").reason_pt == "KB tem PAY-21, o Jira não acha"
+    execute(plan, tracker)
+    assert all(tracker.find(u) is None for u in ("bet-042", "s-01", "s-02"))

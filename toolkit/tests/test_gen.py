@@ -10,6 +10,8 @@ from t0.gen import GenContext, Scope
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 VERSION = tomllib.loads(PYPROJECT.read_text())["project"]["version"]
 MCP = {"mcpServers": {"t0-kb": {"command": "t0", "args": ["mcp"]}}}
+AGENT = ('---\nname: verifier\ndescription: "Verifica: o app"\n'
+         "tools: Read, Grep, Glob, Bash, Skill, mcp__plugin_t0_t0-kb__kb_get\nmodel: opus\n---\n\nCorpo pt-BR.\n")
 
 
 @pytest.fixture
@@ -22,6 +24,8 @@ def src(tmp_path):
     (d / "skills/_shared").mkdir()
     (d / "skills/_shared/header.md").write_text("não é skill")
     (d / ".mcp.json").write_text(json.dumps(MCP))
+    (d / "agents").mkdir()
+    (d / "agents/verifier.md").write_text(AGENT)
     return d
 
 
@@ -32,7 +36,8 @@ def test_plugin_scope_renders_every_adapter(src, tmp_path):
     assert files == sorted([
         ".claude-plugin/plugin.json", "hooks/hooks.json", "plugin.json", "mcp.json", ".github/hooks/t0.json",
         ".vscode/mcp.json", ".github/copilot-instructions.md", ".kiro/steering/t0.md", ".kiro/settings/mcp.json",
-        ".kiro/hooks/t0.json", ".kiro/skills/bet-use/SKILL.md", ".kiro/skills/bet-use/refs/x.md"])
+        ".kiro/hooks/t0.json", ".kiro/skills/bet-use/SKILL.md", ".kiro/skills/bet-use/refs/x.md",
+        "com.github.copilot/agents/verifier.agent.md"])
     claude = json.loads((out / ".claude-plugin/plugin.json").read_text())
     assert claude["name"] == "t0" and claude["version"] == VERSION
     agent = json.loads((out / "plugin.json").read_text())
@@ -48,8 +53,8 @@ def test_hook_registrations_per_tool(src, tmp_path):
     out = tmp_path / "out"
     gen.run(scope="plugin", src=src, out=out)
     claude = json.loads((out / "hooks/hooks.json").read_text())["hooks"]
-    assert claude["PreToolUse"][0]["matcher"] == "Bash|Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob"
-    assert claude["PreToolUse"][0]["hooks"][0]["command"] == "t0 hook pre-tool"
+    assert claude["PreToolUse"][0]["matcher"] == "Bash|Edit|Write|MultiEdit|NotebookEdit|Read|Grep|Glob|mcp__.*"
+    assert claude["PreToolUse"][0]["hooks"][0]["command"] == '"${CLAUDE_PLUGIN_ROOT}/hooks/t0-hook.sh" pre-tool'
     assert claude["SessionStart"][0]["matcher"] == "startup|resume|clear|compact"
     assert set(claude) == {"SessionStart", "SubagentStart", "UserPromptSubmit", "PreToolUse", "Stop"}
     copilot = json.loads((out / ".github/hooks/t0.json").read_text())
@@ -83,8 +88,35 @@ def test_kb_profile_md_ignores_timestamp_drift(tmp_path):
     gen.write(ctx1, gen.generate(ctx1))
     text = (tmp_path / "profile.md").read_text()
     assert "type: OKF Profile" in text and "| Slice | slice | knowledge |" in text
-    assert "| G2 | Spec aprovado | Spec |" in text
+    assert "| spec | Spec aprovado | Spec |" in text
     ctx2 = GenContext(tmp_path, Scope.KB, facts={"now": "2026-12-01T10:00:00+00:00"})
     assert gen.check_drift(ctx2) == []
     assert gen.write(ctx2, gen.generate(ctx2)) == []
     assert (tmp_path / "profile.md").read_text() == text
+
+
+def test_copilot_agent_variant_maps_tools(src, tmp_path):
+    import yaml
+
+    out = tmp_path / "out"
+    gen.run(scope="plugin", src=src, out=out)
+    text = (out / "com.github.copilot/agents/verifier.agent.md").read_text()
+    meta = yaml.safe_load(text.split("---\n")[1])
+    assert meta == {"name": "verifier", "description": "Verifica: o app",
+                    "tools": ["read", "search", "execute", "t0-kb/kb_get"]}
+    assert gen.MARKER in text and text.endswith("\nCorpo pt-BR.\n")
+
+
+@pytest.mark.parametrize("bad", [
+    "---\nname: verifier\ndescription: x\ntools: Read, Teleport\nmodel: opus\n---\n",
+    "---\nname: outro\ndescription: x\ntools: Read\nmodel: opus\n---\n",
+    "---\nname: verifier\ntools: Read\n---\n",
+])
+def test_bad_agent_source_is_an_error(src, tmp_path, bad):
+    (src / "agents/verifier.md").write_text(bad)
+    assert gen.run(scope="plugin", src=src, out=tmp_path / "o") == 2
+
+
+def test_real_plugin_is_drift_clean():
+    plugin = PYPROJECT.parent.parent / "plugin"
+    assert gen.check_drift(GenContext(plugin, Scope.PLUGIN, plugin)) == []

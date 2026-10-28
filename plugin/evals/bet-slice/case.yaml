@@ -1,0 +1,53 @@
+{
+ "schema_version": "1.1",
+ "name": "bet-slice",
+ "description": "o spec da BET-003 tá fechado. Fatia em slices e abre o PR do spec.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 40,
+  "timeout_seconds": 600,
+  "prompt": "o spec da BET-003 tá fechado. Fatia em slices e abre o PR do spec. A quebra que você propuser eu já aprovo, pode seguir até o PR."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-bet-slice",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "bet-slice",
+   "min": 1
+  },
+  {
+   "name": "kb-propose",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 kb propose|t0 new slice",
+   "min": 1
+  },
+  {
+   "name": "gate-spec-dry",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 gate spec",
+   "min": 1
+  },
+  {
+   "name": "vertical-slices",
+   "type": "llm",
+   "criteria": "Pass if the agent wrote 1 to 3 slices for BET-003 on the spec's branch (each with a repo and acceptance criteria as bullets), ran the spec gate check, and stopped for the Bet Owner's approval of the PR, in Portuguese. Do not require the full slice text in the final message."
+  }
+ ]
+}

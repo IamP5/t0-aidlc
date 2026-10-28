@@ -1,0 +1,30 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "t0 session-start",
+      "event": "sessionStart",
+      "command": "t0 hook session-start --tool kiro",
+      "timeout": 10
+    },
+    {
+      "name": "t0 prompt-submit",
+      "event": "promptSubmit",
+      "command": "t0 hook prompt-submit --tool kiro",
+      "timeout": 10
+    },
+    {
+      "name": "t0 pre-tool",
+      "event": "preToolUse",
+      "matcher": "*",
+      "command": "t0 hook pre-tool --tool kiro",
+      "timeout": 10
+    },
+    {
+      "name": "t0 stop",
+      "event": "agentStop",
+      "command": "t0 hook stop --tool kiro",
+      "timeout": 10
+    }
+  ]
+}

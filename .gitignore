@@ -1,8 +1,9 @@
-__pycache__/
-*.pyc
-.venv/
 *.egg-info/
-plugin/evals/results/
+*.pyc
+.eval/
 .pytest_cache/
+.venv/
+__pycache__/
 dist/
+plugin/evals/results/
 toolkit/.venv/

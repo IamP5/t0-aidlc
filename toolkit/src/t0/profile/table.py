@@ -1,37 +1,29 @@
-"""THE profile table (t0-team). Single source for types, fields, state machines, gates, bet types.
+"""THE profile table (t0-team, v2). Single source for types, fields, state machines, gates and tracks.
 
-Self-tests (tests/test_table.py) assert, at build time:
-- every StateMachine maps every state to a Status, every Transition has exactly one of via_gate/via_event,
-  every via_gate names a GATES id, every state is reachable from `initial`;
-- every GateSpec.moves[*] is a legal transition of that type's machine (from some state, via that gate);
-- every gate id appears in at least one BET_TYPES[*].gates, or is a product gate (G7, G8);
-- every CheckId has an implementation in gates.CHECKS and every on_create names a write.SCAFFOLDS entry;
-- every path pattern is unique per type and no two types' patterns overlap (path -> type is a function);
-- PROFILE_VERSION bumps (major) whenever a field is removed or a state renamed (golden of the table).
-
-Abbreviated below for non-load-bearing types ("..." in fields); the full table is mechanical transcription
-of methodology §5.4 + workspace-pattern §2.2/§4.
+Self-tests live in tests/test_profile.py: every state maps to a status, every via_gate names a gate,
+every gate move is a legal transition, every CheckId has an implementation, path -> type is a function.
 """
 from __future__ import annotations
 
+import re
+from functools import cached_property
+
 from .spec import (
-    ApproverRule, BetTypeSpec, CheckId as C, EventKind as E, Field as F, GateSpec, GateWriter,
-    IdScheme, Kind as K, Lane, Move, StalePolicy, Staleness, StateMachine, Status as S,
-    Transition as T, TypeSpec,
+    ApproverRule, CheckId as C, EventKind as E, Field as F, GateSpec, IdScheme, Kind as K, Lane, LeadWhen,
+    Move, StateMachine, StateOwner, Status as S, TrackSpec, Transition as T, TypeSpec,
 )
 
 PROFILE = "t0-team"
-PROFILE_VERSION = "0.2"     # 0.1 was the research proposal; 0.2 adds Step/Gate/Changeset/Workspace + derived keys
+PROFILE_VERSION = "1.0"     # v2 methodology: G0..G8, bet types, Plan/Assessment/Bugfix/Contract removed
 
-# Common keys. `state`, `status`, `verified` are DERIVED on every type that has a state machine.
 COMMON_FIELDS: tuple[F, ...] = (
     F("type", K.STR, required=True),
     F("title", K.STR, required=True, doc_pt="Título curto"),
     F("description", K.STR, required=True, doc_pt="Uma frase; vira a linha do index"),
     F("tags", K.LIST_STR),
     F("uid", K.UID, required=True, doc_pt="Id estável, kebab-case, único no bundle"),
-    F("owner", K.ACTOR, required=True),
-    F("generated", K.MAP, required=True),
+    F("owner", K.ACTOR, required=True, doc_pt="Dono: human:, team:, role: ou process:"),
+    F("generated", K.MAP, required=True, doc_pt="{ by: <ator>, at: <data com offset> }"),
     F("relations", K.MAP),
     F("stale_after", K.INSTANT),
 )
@@ -44,267 +36,283 @@ STATEFUL_DERIVED: tuple[F, ...] = (
 _D, _ST, _DEP = S.DRAFT, S.STABLE, S.DEPRECATED
 
 
-def _sm(initial: str, status: dict[str, S], *ts: T) -> StateMachine:
-    return StateMachine(initial, tuple(ts), status)
+def _sm(initial: str, status: dict[str, S], *ts: T, owner: StateOwner = StateOwner.DECISION) -> StateMachine:
+    return StateMachine(initial, tuple(ts), status, owner)
 
 
-def _t(frm: str, to: str, *, gate: str | None = None, event: E | None = None) -> T:
-    return T(frozenset(frm.split("|")), to, gate, event)
+def _t(frm: str, to: str, *, gate: str | None = None, event: E | None = None, cmd: str | None = None) -> T:
+    return T(frozenset(frm.split("|")), to, gate, event, cmd)
 
+
+# Body headings the toolkit reads; the body is their only home (matched ignoring case and accents).
+ACCEPTANCE, VERIFY, RAPIDA_SECTIONS = "Critérios de aceite", "Como verificar", ("Atual", "Esperado", "Não muda")
+_SLICE_BODY = "## O que muda\n\n## Critérios de aceite\n\n- \n\n## Como verificar\n"
+RAPIDA_SLICE_BODY = ("## Atual\n\n## Esperado\n\n## Não muda\n\n- \n\n## Critérios de aceite\n\n- \n\n"
+                     "## Como verificar\n\n<!-- o teste que fica vermelho hoje e verde depois -->\n")
 
 TYPES: tuple[TypeSpec, ...] = (
-    # ---------------------------------------------------------------- cycle artifacts
     TypeSpec(
-        "Idea", "idea", ("/ideas/{id}.md",), Lane.RECORDS,
-        fields=(F("source", K.ENUM, True, ("human", "squad", "transcript", "jira")),
-                F("product", K.STR), F("bet", K.UID, derived=True)),
-        states=_sm("new", {"new": _D, "triaged": _ST, "parked": _ST, "rejected": _DEP, "promoted": _ST},
-                   _t("new", "triaged", gate="G0"),
-                   _t("new|triaged", "parked", gate="G0"),
-                   _t("new|triaged", "rejected", gate="G0"),
-                   _t("triaged", "promoted", event=E.TRANSITION)),   # emitted by `t0 new bet --from IDEA`
-        ids=IdScheme("seq", "IDEA-{n:04}-{slug}"),
-        index_section_pt="Ideias",
+        "Idea", "idea", ("/ideas/{id}.md",), Lane.KNOWLEDGE,
+        fields=(F("source", K.ENUM, True, ("human", "squad", "transcript", "jira"), doc_pt="De onde veio"),
+                F("product", K.STR, doc_pt="Pod: dev-tooling, paco ou portal-metricas"),
+                F("verdict", K.ENUM, enum=("segue", "ajusta", "mata"), doc_pt="Veredito do protótipo"),
+                F("prototype_ref", K.STR, doc_pt="Onde está o protótipo (branch, gist, pasta fora do main)"),
+                F("decided_at", K.INSTANT, doc_pt="Quando o veredito saiu"),
+                F("bet", K.STR, doc_pt="BET-NNN quando a ideia virou bet")),
+        states=_sm("new", {"new": _D, "prototyped": _ST, "promoted": _ST, "killed": _DEP},
+                   _t("new|prototyped", "prototyped", cmd="idea prototype"),
+                   _t("new|prototyped", "killed", cmd="idea prototype"),
+                   _t("new|prototyped", "promoted", cmd="new bet")),
+        ids=IdScheme("seq", "IDEA-{n:04}"), index_section_pt="Ideias",
         template_body_pt="## Problema\n\n## Para quem\n\n## Evidência\n",
     ),
     TypeSpec(
         "Bet", "bet", ("/products/{product}/bets/{bet}/bet.md",), Lane.KNOWLEDGE,
-        fields=(F("bet_type", K.ENUM, True, ("exploratoria", "entrega", "bugfix", "plataforma")),
-                F("appetite", K.DURATION, True), F("hypothesis", K.TEXT), F("kill_criteria", K.TEXT),
-                F("success_metric", K.TEXT), F("cycle_start", K.INSTANT), F("cycle_end", K.INSTANT),
-                F("decision_by", K.ACTOR, True), F("tier_default", K.INT),
-                F("jira", K.JIRA_KEY, derived=True)),
-        states=_sm("proposed", {"proposed": _D, "active": _ST, "shipped": _ST, "killed": _DEP, "extended": _ST},
-                   _t("proposed|extended", "active", gate="G1"),
-                   _t("active", "shipped", gate="G6"),    # G6 gate file carries `to:` (one of three)
-                   _t("active", "killed", gate="G6"),
-                   _t("active", "extended", gate="G6"),
-                   _t("active", "shipped", gate="G5")),   # bugfix only: the CI G5 record closes the bet
-        stale=Staleness(StalePolicy.FROM_FIELD, "cycle_end"),
-        ids=IdScheme("seq", "BET-{n:03}"),
-        index_section_pt="Bets",
-        template_body_pt="## Problema\n\n## Para quem\n\n## Apetite e critério de kill\n\n## Fora de escopo\n",
-        # no on_create: log.md, changeset.md and index.md of the bet folder are DERIVED (kb-render).
+        fields=(F("track", K.ENUM, True, ("rapida", "bet"), doc_pt="rapida: um slice, sem spec; bet: protótipo, spec, slices"),
+                F("appetite", K.DURATION, True, doc_pt="ISO 8601: rapida até P1D, bet até P2W"),
+                F("hypothesis", K.TEXT, doc_pt="Se fizermos X, Y acontece"),
+                F("kill_criteria", K.TEXT, doc_pt="O que faz a gente parar"),
+                F("success_metric", K.TEXT, doc_pt="Número e onde ele é medido"),
+                F("decision_by", K.ACTOR, True, doc_pt="Quem aprova a aposta (Bet Owner, ou Flow Steward na rápida)"),
+                F("idea", K.STR, doc_pt="IDEA-NNNN de origem"),
+                F("pods", K.LIST_STR, doc_pt="Pods que a bet toca; mais de um exige o Lead"),
+                F("tier", K.INT, doc_pt="Tier de review padrão (2 exige o Lead)"),
+                F("cycle_end", K.INSTANT, doc_pt="Fim do apetite"),
+                F("jira", K.JIRA_KEY, derived=True, doc_pt="Feature no Jira, gravada pelo sync")),
+        states=_sm("proposed", {"proposed": _D, "active": _ST, "shipped": _ST, "killed": _DEP},
+                   _t("proposed", "active", gate="aposta"),
+                   _t("active", "shipped", cmd="bet ship"),
+                   _t("proposed|active", "killed", cmd="log kill")),
+        ids=IdScheme("seq", "BET-{n:03}"), index_section_pt="Bets",
+        template_body_pt="## Intenção\n\n## Apetite e critério de kill\n\n## Fora de escopo\n\n## Aprendizado\n",
     ),
     TypeSpec(
-        "Bugfix", "bugfix", ("/products/{product}/bets/{bet}/bugfix.md",), Lane.KNOWLEDGE,
-        fields=(F("current", K.TEXT, True), F("expected", K.TEXT, True), F("unchanged", K.LIST_STR, True)),
-        states=_sm("draft", {"draft": _D, "approved": _ST}, _t("draft", "approved", gate="G1")),
-        ids=IdScheme("fixed"), index_section_pt="Bugfix",
-        on_create="bugfix_single_slice",   # bet-new bugfix: Bet + Bugfix + slices/01-fix.md in ONE knowledge PR
-    ),
-    TypeSpec(
-        "Assessment", "assessment", ("/products/{product}/bets/{bet}/assessment.md",), Lane.KNOWLEDGE,
-        fields=(F("prototypes", K.LIST_MAP, True), F("verdict", K.ENUM, True, ("go", "needs-clarification", "kill")),
-                F("kill_reason", K.TEXT)),
-        ids=IdScheme("fixed"), index_section_pt="Assessments",
-    ),
-    TypeSpec(
-        "Spec", "spec", ("/products/{product}/bets/{bet}/spec.md", "/products/{product}/spec.md"), Lane.KNOWLEDGE,
-        fields=(F("bet", K.UID), F("acceptance", K.LIST_STR, True), F("verify_how", K.TEXT, True),
-                F("seams", K.LIST_STR), F("tier", K.INT, True), F("markers_open", K.INT, derived=True)),
-        # markers_open is DERIVED (counted from body by render) -> nobody can "set it to 0".
-        states=_sm("draft", {"draft": _D, "approved": _ST, "frozen": _ST, "superseded": _DEP},
-                   _t("draft", "approved", gate="G2"),
-                   _t("approved", "frozen", event=E.TRANSITION),          # bet-ship
-                   _t("approved", "superseded", event=E.TRANSITION)),     # product live spec
+        "Spec", "spec", ("/products/{product}/bets/{bet}/spec.md",), Lane.KNOWLEDGE,
+        fields=(F("bet", K.STR, True, doc_pt="BET-NNN"),
+                F("seams", K.LIST_STR, doc_pt="Costuras onde os testes entram"),
+                F("tier", K.INT, True, doc_pt="0, 1 ou 2"),
+                F("markers_open", K.INT, derived=True, doc_pt="[PRECISA ESCLARECER] abertos, contado pelo kb-render")),
+        states=_sm("draft", {"draft": _D, "approved": _ST, "frozen": _ST},
+                   _t("draft", "approved", gate="spec"),
+                   _t("approved", "frozen", cmd="bet ship")),
         ids=IdScheme("fixed"), index_section_pt="Specs",
-        template_body_pt="## Contexto\n\n## Critérios de aceite\n\n- \n\n## Como verificar\n\n## Costuras (seams)\n\n## Fora de escopo\n",
-    ),
-    TypeSpec(
-        "Plan", "plan", ("/products/{product}/bets/{bet}/plan.md",), Lane.KNOWLEDGE,
-        fields=(F("bolts", K.LIST_MAP, True), F("checks", K.MAP, True), F("integration", K.STR)),
-        states=_sm("draft", {"draft": _D, "approved": _ST}, _t("draft", "approved", gate="G3")),
-        ids=IdScheme("fixed"), index_section_pt="Planos",
-    ),
-    TypeSpec(
-        "Contract", "contract", ("/products/{product}/contracts/{slug}.md",), Lane.KNOWLEDGE,
-        fields=(F("surface", K.ENUM, True, ("mcp", "cli", "skill", "api")), F("version", K.STR, True),
-                F("consumers", K.LIST_STR), F("breaking_requires", K.STR)),
-        states=_sm("proposed", {"proposed": _D, "approved": _ST, "published": _ST, "deprecated": _DEP},
-                   _t("proposed", "approved", gate="G3"),
-                   _t("approved", "published", event=E.TRANSITION),
-                   _t("published", "deprecated", event=E.TRANSITION)),
-        index_section_pt="Contratos",
+        template_body_pt=("## Contexto\n\n## Critérios de aceite\n\n- \n\n## Como verificar\n\n## Costuras\n\n"
+                          "## Plano (opcional)\n\n## Design (opcional)\n\n## Fora de escopo\n"),
     ),
     TypeSpec(
         "Slice", "slice", ("/products/{product}/bets/{bet}/slices/{slice}.md",), Lane.KNOWLEDGE,
-        fields=(F("bet", K.UID, True), F("bolt", K.STR), F("repo", K.STR, True), F("tier", K.INT, True),
-                F("acceptance", K.LIST_STR, True), F("verify_how", K.TEXT, True), F("depends_on", K.LIST_UID),
-                F("mode", K.ENUM, enum=("tutor",)),
-                F("jira", K.JIRA_KEY, derived=True), F("pr", K.STR, derived=True),
-                F("audit", K.STR, derived=True), F("blocked_by", K.STR, derived=True)),
-        states=_sm("proposed",
-                   {"proposed": _D, "ready": _ST, "building": _ST, "in-review": _ST, "done": _ST,
-                    "blocked": _ST, "conflict": _ST},
-                   _t("proposed", "ready", gate="G3"),
-                   _t("proposed", "ready", gate="G1"),                    # bugfix single slice
-                   _t("ready", "building", event=E.PR_OPENED),
-                   _t("building", "in-review", gate="G4"),
-                   _t("in-review", "done", gate="G5"),
+        fields=(F("bet", K.STR, True, doc_pt="BET-NNN"),
+                F("repo", K.STR, True, doc_pt="Nome do repo no workspace.md; um slice é um repo e um PR"),
+                F("tier", K.INT, True, doc_pt="0, 1 ou 2"),
+                F("depends_on", K.LIST_STR, doc_pt="Slices (NN-slug) que entram antes"),
+                F("jira", K.JIRA_KEY, derived=True, doc_pt="Story no Jira"),
+                F("pr", K.STR, derived=True, doc_pt="PR do slice"),
+                F("audit", K.STR, derived=True, doc_pt="Caminho do .audit/<KEY>.tsv"),
+                F("builder", K.ACTOR, derived=True, doc_pt="Quem abriu o PR"),
+                F("blocked_by", K.STR, derived=True)),
+        states=_sm("ready",
+                   {"ready": _ST, "building": _ST, "in-review": _ST, "done": _ST, "blocked": _ST, "conflict": _ST},
+                   _t("ready|blocked", "building", event=E.PR_OPENED),
+                   _t("building", "in-review", event=E.CI_GATE),
+                   _t("ready|building|in-review", "done", event=E.PR_MERGED),
                    _t("ready|building|in-review", "blocked", event=E.JIRA_STATUS),
-                   _t("blocked", "ready", event=E.JIRA_STATUS),   # unblock returns to ready; PR_OPENED re-enters building
-                   _t("ready|building|in-review|done", "conflict", event=E.JIRA_STATUS)),
-        ids=IdScheme("seq", "{n:02}-{slug}"), index_section_pt="Slices",
-        template_body_pt="## O que muda\n\n## Critérios de aceite\n\n- \n\n## Como verificar\n",
+                   _t("blocked", "ready", event=E.JIRA_STATUS),
+                   _t("ready|building|in-review|done", "conflict", event=E.JIRA_STATUS),
+                   owner=StateOwner.RENDER),
+        ids=IdScheme("seq", "{n:02}-{slug}"), index_section_pt="Slices", template_body_pt=_SLICE_BODY,
     ),
     TypeSpec(
         "ADR", "adr", ("/methodology/adr/{id}.md", "/products/{product}/adr/{id}.md"), Lane.KNOWLEDGE,
-        fields=(F("number", K.INT, True), F("deciders", K.LIST_ACTOR, True), F("decided_at", K.INSTANT)),
+        fields=(F("number", K.INT, True), F("deciders", K.LIST_ACTOR, True, doc_pt="Quem decide"),
+                F("decided_at", K.INSTANT)),
         states=_sm("proposed", {"proposed": _D, "accepted": _ST, "superseded": _DEP, "rejected": _DEP},
-                   _t("proposed", "accepted", event=E.GATE_APPROVED),   # merge of the ADR's knowledge PR
-                   _t("proposed", "rejected", event=E.TRANSITION),
-                   _t("accepted", "superseded", event=E.TRANSITION)),      # emitted when a new ADR supersedes
+                   _t("proposed", "accepted", cmd="pr"), _t("proposed", "rejected", cmd="pr"),
+                   _t("accepted", "superseded", cmd="pr")),
         ids=IdScheme("seq", "ADR-{n:04}-{slug}"), index_section_pt="Decisões (ADR)",
+        template_body_pt="## Contexto\n\n## Decisão\n\n## Consequências\n\n## Alternativas\n",
     ),
-    # ---------------------------------------------------------------- event + derived types
     TypeSpec(
-        "Step", "step",
-        ("/products/{product}/bets/{bet}/steps/{unique}.md", "/cycles/{cycle}/steps/{unique}.md"), Lane.RECORDS,
-        fields=(F("kind", K.ENUM, True, tuple(e.value for e in E if e is not E.GATE)),
-                F("bet", K.STR), F("story", K.JIRA_KEY), F("repo", K.STR), F("refs", K.LIST_STR),
-                F("target", K.UID), F("to", K.STR), F("dedup", K.STR), F("on_behalf_of", K.ACTOR),
+        "Ritual", "ritual", ("/rituals/{slug}/ritual.md",), Lane.KNOWLEDGE,
+        fields=(F("cadence", K.STR, True), F("duration", K.DURATION, True), F("facilitator", K.ACTOR, True),
+                F("participants", K.LIST_ACTOR), F("inputs", K.LIST_MAP, True, doc_pt="{id, source, desc}; source kb:<Tipo> chave=valor"),
+                F("outputs", K.LIST_STR), F("command", K.STR, True), F("recorded", K.BOOL, True),
+                F("transcribable", K.BOOL)),
+        states=_sm("active", {"active": _ST, "paused": _ST, "retired": _DEP},
+                   _t("active", "paused", cmd="pr"), _t("paused", "active", cmd="pr"),
+                   _t("active|paused", "retired", cmd="pr")),
+        index_section_pt="Rituais",
+    ),
+    TypeSpec(
+        "Ritual Record", "ritual-record", ("/rituals/{slug}/{date}.md",), Lane.KNOWLEDGE,
+        fields=(F("ritual", K.STR, True), F("date", K.INSTANT, True), F("facilitator", K.ACTOR, True),
+                F("attended", K.LIST_ACTOR), F("decisions", K.LIST_MAP, doc_pt="{text, owner, due, kind}"),
+                F("transcript", K.PATH), F("harness_accepted", K.LIST_STR), F("rotation", K.MAP)),
+        index_section_pt="Registros de ritual",
+    ),
+    TypeSpec(
+        "Transcript", "transcript", ("/transcripts/{name}.md",), Lane.KNOWLEDGE,
+        fields=(F("ritual", K.STR, True), F("redaction", K.STR, True, doc_pt="Versão do redator"),
+                F("off_record_spans", K.INT, True), F("participants", K.LIST_ACTOR)),
+        stale_required=True, index_section_pt="Transcrições",
+    ),
+    TypeSpec(
+        "Harness Item", "harness", ("/harness/{id}.md",), Lane.KNOWLEDGE,
+        fields=(F("pattern", K.TEXT, True, doc_pt="O erro do agente, em uma frase"),
+                F("ladder_step", K.ENUM, enum=("sensor", "area-rule", "skill", "agents-md")),
+                F("occurrences", K.LIST_STR, doc_pt="Onde aconteceu (PR, KEY, sessão)"),
+                F("accepted", K.BOOL, doc_pt="Aceito no Harness Health"),
+                F("pr", K.STR, derived=True, doc_pt="PR do conserto, do registro `t0 ci HI-NNNN`")),
+        states=_sm("open", {"open": _D, "fixed": _ST, "wontfix": _DEP},
+                   _t("open", "open", event=E.PR_OPENED), _t("open", "fixed", event=E.PR_MERGED),
+                   _t("open", "wontfix", event=E.DECISION),
+                   owner=StateOwner.RENDER),
+        ids=IdScheme("seq", "HI-{n:04}"), index_section_pt="Harness",
+        template_body_pt="## O que o agente fez\n\n## O que devia ter feito\n\n## Degrau da escada\n",
+    ),
+    TypeSpec(
+        "Product", "product", ("/products/{product}/product.md",), Lane.KNOWLEDGE,
+        fields=(F("stage", K.ENUM, True, ("pre-pmf", "crescimento", "maduro")),
+                F("adoption_stage", K.INT, doc_pt="1, 2 ou 3; muda só pelo gate degrau (v0.2)"),
+                F("repos", K.LIST_STR, True), F("domain_contacts", K.LIST_ACTOR), F("eval_owner", K.ACTOR)),
+        states=_sm("discovery", {"discovery": _D, "live": _ST, "sunset": _DEP},
+                   _t("discovery", "live", cmd="pr"), _t("live", "sunset", cmd="pr")),
+        index_section_pt="Produtos",
+    ),
+    TypeSpec("Workspace", "workspace", ("/products/{product}/workspace.md",), Lane.KNOWLEDGE,
+             fields=(F("workspace", K.MAP, True),), index_section_pt="Workspaces"),
+    TypeSpec("Eval Suite", "evals", ("/products/{product}/evals.md",), Lane.KNOWLEDGE,
+             fields=(F("repo_path", K.STR, True), F("metric", K.ENUM, True, ("pass@1", "pass^3")),
+                     F("regression_pass", K.STR), F("last_run", K.INSTANT)), index_section_pt="Evals"),
+    TypeSpec(
+        "Adoption Report", "adoption", ("/products/{product}/adoption/{week}.md",), Lane.KNOWLEDGE,
+        fields=(F("adoption_stage", K.INT, True), F("wau", K.INT), F("retention_4w", K.STR), F("repeat_use", K.STR)),
+        states=_sm("open", {"open": _D, "passed": _ST, "failed": _ST},
+                   _t("open", "passed", cmd="gate degrau"), _t("open", "failed", cmd="gate degrau")),
+        index_section_pt="Adoção",
+    ),
+    TypeSpec(
+        "Policy", "policy", ("/methodology/policies/{slug}.md",), Lane.KNOWLEDGE,
+        fields=(F("effective_from", K.INSTANT), F("approved_by", K.ACTOR),
+                F("thresholds", K.MAP, doc_pt="Os números que os gates e o `t0` leem")),
+        states=_sm("proposed", {"proposed": _D, "in-force": _ST, "retired": _DEP},
+                   _t("proposed", "in-force", cmd="pr"), _t("in-force", "retired", cmd="pr")),
+        stale_required=True, index_section_pt="Políticas",
+    ),
+    TypeSpec("Template", "template", ("/templates/{slug}.md",), Lane.KNOWLEDGE,
+             fields=(F("template_for", K.STR, True, doc_pt="O tipo que este esqueleto cria"),
+                     F("skeleton", K.MAP)), index_section_pt="Templates"),
+    TypeSpec(
+        "Person", "person", ("/team/people/{slug}.md",), Lane.KNOWLEDGE,
+        fields=(F("handle", K.STR, True, doc_pt="Igual ao <handle> de human:<handle>"),
+                F("pods", K.LIST_STR), F("roles", K.LIST_STR, doc_pt="Slugs de /team/roles/ fixos (lead, bet-owner)"),
+                F("junior", K.BOOL)),
+        states=_sm("active", {"active": _ST, "alumni": _DEP}, _t("active", "alumni", cmd="pr")),
+        index_section_pt="Pessoas",
+    ),
+    TypeSpec("Role", "role", ("/team/roles/{slug}.md",), Lane.KNOWLEDGE,
+             fields=(F("responsibilities", K.LIST_STR), F("rotates", K.BOOL),
+                     F("holders", K.LIST_ACTOR, doc_pt="Quem tem o papel fixo (lead)")), index_section_pt="Papéis"),
+    TypeSpec("Rotation", "rotation", ("/team/rotations/{slug}.md",), Lane.KNOWLEDGE,
+             fields=(F("role", K.PATH, True), F("cadence", K.DURATION, True), F("roster", K.LIST_ACTOR, True),
+                     F("assignments", K.LIST_MAP, True, doc_pt="{who, from, to}; a Demo acrescenta")),
+             stale_required=True, index_section_pt="Rodízios"),
+    TypeSpec("Glossary Term", "term", ("/glossary/{slug}.md", "/products/{product}/glossary/{slug}.md"), Lane.KNOWLEDGE,
+             fields=(F("term", K.STR, True), F("term_en", K.STR), F("aliases", K.LIST_STR), F("avoid", K.LIST_STR),
+                     F("scope", K.STR)), index_section_pt="Glossário"),
+    TypeSpec(
+        "Step", "step", ("/steps/{unique}.md", "/products/{product}/bets/{bet}/steps/{unique}.md"), Lane.RECORDS,
+        fields=(F("kind", K.ENUM, True, tuple(e.value for e in E)),
+                F("bet", K.STR), F("story", K.STR), F("repo", K.STR), F("refs", K.LIST_STR),
+                F("target", K.STR), F("to", K.STR), F("dedup", K.STR), F("on_behalf_of", K.ACTOR),
                 F("payload", K.MAP)),
         ids=IdScheme("unique"), index_section_pt="Registros",
     ),
-    TypeSpec(
-        "Gate", "gate", ("/products/{product}/bets/{bet}/gates/{gate}.md", "/ideas/gates/{idea}-G0.md",
-                         "/products/{product}/gates/{gate}-{n}.md"), Lane.KNOWLEDGE,
-        fields=(F("gate", K.ENUM, True, ("G0", "G1", "G2", "G3", "G6", "G7", "G8")),
-                F("target", K.UID, True), F("to", K.STR), F("requested_by", K.ACTOR, True),
-                F("evidence", K.LIST_MAP, True)),   # snapshot of check results at request time
-        ids=IdScheme("fixed"), index_section_pt="Gates",
-    ),
-    TypeSpec("Changeset", "changeset", ("/products/{product}/bets/{bet}/changeset.md",), Lane.DERIVED,
-             fields=(F("changes", K.LIST_MAP, derived=True), F("tested_together", K.MAP, derived=True))),
-    TypeSpec("Log", "log", ("/log.md", "/products/{product}/bets/{bet}/log.md"), Lane.DERIVED, fields=()),
-    # ---------------------------------------------------------------- rituals, cycles, team, product
-    TypeSpec("Ritual", "ritual", ("/methodology/rituals/{slug}.md",), Lane.KNOWLEDGE,
-             fields=(F("cadence", K.STR, True), F("duration", K.DURATION, True), F("facilitator", K.ACTOR, True),
-                     F("participants", K.LIST_ACTOR), F("inputs", K.LIST_MAP, True), F("outputs", K.LIST_STR),
-                     F("command", K.STR, True), F("cancel_rule", K.TEXT), F("recorded", K.BOOL, True)),
-             stale=Staleness(StalePolicy.REQUIRED)),
-    TypeSpec("Ritual Record", "ritual-record", ("/cycles/{cycle}/rituals/{date}-{slug}.md",), Lane.KNOWLEDGE,
-             fields=(F("ritual", K.UID, True), F("date", K.INSTANT, True), F("facilitator", K.ACTOR, True),
-                     F("attended", K.LIST_ACTOR), F("decisions", K.LIST_MAP), F("transcript", K.PATH),
-                     F("cancelled", K.TEXT))),
-    TypeSpec("Transcript", "transcript", ("/cycles/{cycle}/transcripts/{date}-{slug}.md",), Lane.KNOWLEDGE,
-             fields=(F("ritual", K.UID, True), F("redaction", K.STR, True), F("off_record_spans", K.INT, True),
-                     F("participants", K.LIST_ACTOR)),
-             stale=Staleness(StalePolicy.TTL, ttl="P180D", policy_uid="policy-transcript-retention")),
-    TypeSpec("Cycle Record", "cycle", ("/cycles/{cycle}/cycle.md",), Lane.KNOWLEDGE,
-             fields=(F("bets", K.LIST_UID), F("archetypes", K.LIST_MAP), F("rotations", K.LIST_MAP),
-                     F("tutor_slices", K.LIST_UID)),
-             states=_sm("active", {"active": _ST, "closed": _ST}, _t("active", "closed", event=E.TRANSITION))),
-    TypeSpec("Metric Snapshot", "metrics", ("/cycles/{cycle}/report.md", "/cycles/{cycle}/digests/{date}.md",
-                                            "/harness/trust.md", "/harness/budget.md"), Lane.KNOWLEDGE,
-             fields=(F("period", K.STR, True), F("metrics", K.MAP, True), F("source", K.STR, True))),
-    TypeSpec("Product", "product", ("/products/{product}/product.md",), Lane.KNOWLEDGE,
-             fields=(F("stage", K.ENUM, True, ("pre-pmf", "crescimento", "maduro")),
-                     F("adoption_stage", K.INT, derived=True), F("eval_owner", K.ACTOR),
-                     F("domain_contacts", K.LIST_ACTOR), F("repos", K.LIST_STR, True)),
-             states=_sm("discovery", {"discovery": _D, "live": _ST, "sunset": _DEP},
-                        _t("discovery", "live", event=E.TRANSITION), _t("live", "sunset", event=E.TRANSITION))),
-    TypeSpec("Workspace", "workspace", ("/products/{product}/workspace.md",), Lane.KNOWLEDGE,
-             fields=(F("workspace", K.MAP, True),)),
-    TypeSpec("Adoption Report", "adoption", ("/products/{product}/adoption/{week}.md",), Lane.KNOWLEDGE,
-             fields=(F("adoption_stage", K.INT, True), F("wau", K.INT), F("target_cohort", K.INT),
-                     F("retention_4w", K.STR), F("repeat_use", K.STR)),
-             states=_sm("open", {"open": _D, "passed": _ST, "failed": _ST},
-                        _t("open", "passed", event=E.TRANSITION), _t("open", "failed", event=E.TRANSITION))),
-    TypeSpec("Eval Suite", "evals", ("/products/{product}/evals.md",), Lane.KNOWLEDGE,
-             fields=(F("repo_path", K.STR, True), F("metric", K.ENUM, True, ("pass@1", "pass^3")),
-                     F("regression_size", K.INT, derived=True), F("regression_pass", K.STR, derived=True),
-                     F("last_run", K.INSTANT, derived=True))),
-    TypeSpec("Harness Item", "harness", ("/harness/{id}.md",), Lane.KNOWLEDGE,
-             fields=(F("pattern", K.TEXT, True), F("ladder_step", K.ENUM, enum=("sensor", "area-rule", "skill", "agents-md")),
-                     F("occurrences", K.LIST_STR, derived=True), F("pr", K.STR)),
-             states=_sm("open", {"open": _D, "fixed": _ST, "wontfix": _DEP},
-                        _t("open", "fixed", event=E.TRANSITION), _t("open", "wontfix", event=E.TRANSITION)),
-             ids=IdScheme("seq", "HI-{n:04}")),
-    TypeSpec("Rotation", "rotation", ("/team/rotations/{slug}.md",), Lane.KNOWLEDGE,
-             fields=(F("role", K.PATH, True), F("cadence", K.DURATION, True), F("roster", K.LIST_ACTOR, True),
-                     F("assignments", K.LIST_MAP, True)),
-             stale=Staleness(StalePolicy.REQUIRED)),
-    TypeSpec("Policy", "policy", ("/methodology/policies/{slug}.md",), Lane.KNOWLEDGE,
-             fields=(F("effective_from", K.INSTANT), F("approved_by", K.ACTOR), F("thresholds", K.MAP)),
-             # thresholds: the ONLY home of gate numbers (adoption floors, eval >=95%, trust 20 PRs, retention 180d)
-             states=_sm("proposed", {"proposed": _D, "in-force": _ST, "retired": _DEP},
-                        _t("proposed", "in-force", event=E.GATE_APPROVED), _t("in-force", "retired", event=E.TRANSITION)),
-             stale=Staleness(StalePolicy.REQUIRED)),
-    TypeSpec("OKF Profile", "profile", ("/profile.md",), Lane.DERIVED,   # body+keys generated by `t0 gen`
+    # OKF's own types and the profile concept
+    TypeSpec("Reference", "reference", (), Lane.KNOWLEDGE, fields=(), index_section_pt="Referência"),
+    TypeSpec("Log", "log", (), Lane.DERIVED, fields=()),
+    TypeSpec("OKF Profile", "profile", ("/profile.md",), Lane.DERIVED,
              fields=(F("profile", K.STR, True), F("profile_version", K.STR, True),
                      F("timestamps", K.STR, True), F("link_style", K.STR, True))),
-    # Person, Role Archetype, Accountability, Principle, Practice, Playbook, Glossary Term, PI Outcome,
-    # Research, Reference: transcribed from methodology §5.4 / okf.md §5.4, same pattern ...
 )
 
-# ---------------------------------------------------------------- gates (methodology §2.2)
-_OWNER = ApproverRule(("bet_owner",))
+DOMAIN_TYPES = tuple(t.name for t in TYPES if t.name not in ("Reference", "Log", "OKF Profile"))
+
+# ---------------------------------------------------------------- the two v0.1 decisions (methodology §2.2)
 GATES: tuple[GateSpec, ...] = (
-    GateSpec("G0", "Ideia triada", "Idea", (Move("Idea", "triaged"),), (),
-             ApproverRule(("lead|aiva",)), GateWriter.HUMAN_PR),
-    GateSpec("G1", "Bet apostada", "Bet",
-             (Move("Bet", "active"), Move("Bugfix", "approved", "bet-children:Bugfix"),
-              Move("Slice", "ready", "bet-children:Slice")),          # last two only for bugfix bets
-             (C.BET_FIELDS_COMPLETE, C.BUGFIX_UNCHANGED_LISTED),
-             ApproverRule(("lead",)),                                   # bugfix: flow_steward (BetTypeSpec override below)
-             GateWriter.HUMAN_PR),
-    GateSpec("G2", "Spec aprovado", "Spec", (Move("Spec", "approved"),),
-             (C.MARKERS_ZERO, C.ACCEPTANCE_BULLETS, C.VERIFY_HOW_PRESENT),
-             ApproverRule(("bet_owner", "domain_expert?"), tier2_adds=("lead",), junior_owner_adds=("preceptor",)),
-             GateWriter.HUMAN_PR),
-    GateSpec("G3", "Pronto para construir", "Plan",
-             (Move("Plan", "approved"), Move("Contract", "approved", "bet-children:Contract"),
-              Move("Slice", "ready", "bet-children:Slice")),
-             (C.PLAN_CHECKS_PASS, C.CONTRACT_APPROVED_IF_SURFACE, C.SLICES_READY_WITH_JIRA, C.ACCEPTANCE_BULLETS),
-             _OWNER, GateWriter.HUMAN_PR),
-    GateSpec("G4", "Pronto para review", "Slice", (Move("Slice", "in-review"),),
-             (C.CI_GREEN, C.REVIEW_AGENT_CLEAN), ApproverRule(()), GateWriter.CI),
-    GateSpec("G5", "Merge (DoD)", "Slice", (Move("Slice", "done"),),
-             (C.PR_APPROVALS_BY_TIER, C.AUDIT_TRAIL_PRESENT, C.TRACE_CHAIN_COMPLETE), ApproverRule(()), GateWriter.CI),
-    GateSpec("G6", "Bet encerrada", "Bet", (Move("Bet", "{to}"),),      # {to} in {shipped,killed,extended}, from gate file
-             (C.ALL_SLICES_DONE, C.ASSESSMENT_VERDICT), ApproverRule(("bet_owner", "lead")), GateWriter.HUMAN_PR),
-    GateSpec("G7", "Degrau 1 -> 2", "Product", (Move("Product", "adoption_stage:2", "product"),),
-             (C.ADOPTION_PASSED, C.EVAL_REGRESSION_PASS), ApproverRule(("aiva", "eval_owner")),
-             GateWriter.HUMAN_PR, policy_uid="policy-adoption-floors"),
-    GateSpec("G8", "Degrau 2 -> 3", "Product", (Move("Product", "adoption_stage:3", "product"),),
-             (C.ADOPTION_PASSED, C.EVAL_REGRESSION_PASS), ApproverRule(("aiva", "lead", "eval_owner")),
-             GateWriter.HUMAN_PR, policy_uid="policy-adoption-floors"),
+    GateSpec("aposta", "Aposta", "Bet",
+             (Move("Bet", "active"),),
+             (C.BET_FIELDS_COMPLETE, C.RAPIDA_SLICE_COMPLETE),
+             ApproverRule(("bet_owner",), (LeadWhen.CROSS_POD, LeadWhen.TIER2, LeadWhen.APPETITE_OVER), "P1W")),
+    GateSpec("spec", "Spec aprovado", "Spec",
+             (Move("Spec", "approved"),),
+             (C.BET_ACTIVE, C.MARKERS_ZERO, C.ACCEPTANCE_BULLETS, C.VERIFY_HOW_PRESENT, C.SLICES_READY),
+             ApproverRule(("bet_owner",), (LeadWhen.TIER2,))),
 )
 
-# ---------------------------------------------------------------- bet types (methodology §2.3)
-BET_TYPES: tuple[BetTypeSpec, ...] = (
-    BetTypeSpec("exploratoria", ("G0", "G1", "G6"), ("Bet", "Assessment"), "P1W", 1, False),
-    BetTypeSpec("entrega", ("G0", "G1", "G2", "G3", "G4", "G5", "G6"), ("Bet", "Spec", "Plan", "Slice"), "P2W", 1, False),
-    BetTypeSpec("bugfix", ("G1", "G4", "G5"), ("Bet", "Bugfix", "Slice"), "P2D", 0, False),
-    BetTypeSpec("plataforma", ("G0", "G1", "G2", "G3", "G4", "G5", "G6"),
-                ("Bet", "Spec", "Plan", "Contract", "Slice"), "P2W", 2, True),
+TRACKS: tuple[TrackSpec, ...] = (
+    TrackSpec("rapida", ("aposta",), ("Bet", "Slice"), "P1D", 1, False, ("appetite", "decision_by")),
+    TrackSpec("bet", ("aposta", "spec"), ("Bet", "Spec", "Slice"), "P2W", 1, False,
+              ("appetite", "decision_by", "hypothesis", "kill_criteria")),
 )
-# Approver override that is data, not code: bugfix G1 is approved by the Flow Steward.
-GATE_APPROVER_OVERRIDES: dict[tuple[str, str], ApproverRule] = {
-    ("bugfix", "G1"): ApproverRule(("flow_steward",)),
-}
+
+
+def _pattern_re(p: str) -> re.Pattern[str]:
+    out, pos = "", 0
+    for m in re.finditer(r"\{(\w+)\}", p):
+        out += re.escape(p[pos:m.start()]) + f"(?P<{m.group(1)}>[^/]+)"
+        pos = m.end()
+    return re.compile("^" + out + re.escape(p[pos:]) + "$")
 
 
 class Registry:
-    """Read-only index over TYPES/GATES/BET_TYPES. Built once at import; O(1) lookups."""
+    """Read-only index over TYPES/GATES/TRACKS."""
 
-    def type_named(self, name: str) -> TypeSpec: raise NotImplementedError
-    def type_for_slug(self, slug: str) -> TypeSpec: raise NotImplementedError
+    @cached_property
+    def _by_name(self) -> dict[str, TypeSpec]:
+        return {t.name: t for t in TYPES}
+
+    @cached_property
+    def _patterns(self) -> list[tuple[TypeSpec, re.Pattern[str]]]:
+        return [(t, _pattern_re(p)) for t in TYPES for p in t.paths]
+
+    def type_named(self, name: str) -> TypeSpec | None:
+        return self._by_name.get(name)
+
+    def type_for_slug(self, slug: str) -> TypeSpec | None:
+        return next((t for t in TYPES if t.slug == slug), None)
+
     def type_for_path(self, path: str) -> tuple[TypeSpec, dict[str, str]] | None:
-        """Match path patterns; returns the spec and captured vars ({product, bet, ...})."""
-        raise NotImplementedError
+        for t, rx in self._patterns:
+            m = rx.match(path)
+            if m:
+                return t, m.groupdict()
+        return None
+
+    def path_ok(self, t: TypeSpec, path: str) -> bool:
+        return not t.paths or any(rx.match(path) for tt, rx in self._patterns if tt is t)
+
     def fields(self, t: TypeSpec) -> tuple[F, ...]:
-        """COMMON_FIELDS + (STATEFUL_DERIVED if t.states) + t.fields, in serialization order."""
-        raise NotImplementedError
-    def derived_keys(self, t: TypeSpec) -> frozenset[str]: raise NotImplementedError
-    def lane_for_write(self, path: str, *, creating: bool) -> Lane:
-        """creating + type lane RECORDS -> RECORDS; reserved/derived files -> DERIVED; else KNOWLEDGE."""
-        raise NotImplementedError
-    def gate(self, gid: str) -> GateSpec: raise NotImplementedError
-    def gates_for(self, bet_type: str) -> tuple[GateSpec, ...]: raise NotImplementedError
-    def approvers(self, bet_type: str | None, gid: str) -> ApproverRule: raise NotImplementedError
+        return COMMON_FIELDS + (STATEFUL_DERIVED if t.states else ()) + t.fields
+
+    def render_keys(self, t: TypeSpec) -> frozenset[str]:
+        """Keys only kb-render writes: type-specific derived fields, `status` and `verified` (from approvals) for
+        every machine, and `state` for RENDER machines."""
+        keys = {f.name for f in t.fields if f.derived}
+        if t.states:
+            keys |= {"status", "verified"}
+            if t.states.owner is StateOwner.RENDER:
+                keys.add("state")
+        return frozenset(keys)
+
+    def derived_keys(self, t: TypeSpec) -> frozenset[str]:
+        """Keys nobody edits by hand (hooks): render keys plus decision-owned state/verified."""
+        return frozenset({f.name for f in t.fields if f.derived} | ({f.name for f in STATEFUL_DERIVED} if t.states else set()))
+
+    def gate(self, gid: str) -> GateSpec | None:
+        return next((g for g in GATES if g.id == gid), None)
+
+    def track(self, name: str) -> TrackSpec | None:
+        return next((t for t in TRACKS if t.name == name), None)
 
 
 REGISTRY = Registry()

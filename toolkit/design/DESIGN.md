@@ -4,14 +4,14 @@ This is the contract every build stream implements. It wins over the sketch (`de
 
 Functional source: `methodology/v2-brief.md`, `methodology/methodology.md` (§11 is the step → command → artifact table) and `methodology/workspace-pattern.md`. Upstream analysis: `research/toolkit-inventory.md`. Decision trail: `.audit/aidlc-build.tsv`.
 
-Approved by the user on 2026-10-28 (decisions D1 to D8, section 12).
+Approved by the user on 2026-10-28 (decisions D1 to D8, section 12; D2 revised the same day).
 
 ## 1. Base
 
 - **Candidate 1, "event-folded KB", narrowed.** It has the smaller public surface: a `KB` facade, `Plan | Refusal`, one `apply`. Invariants live in signatures (`RecordsPR`, always-draft forge, `Redacted`), the registry is one code table with self-tests, and there is one hook entrypoint.
 - **Each state key has one owner, per type.**
-  - Knowledge types (Idea after `new`, Bet, Spec, ADR, Policy, Rotation, Product `adoption_stage`): `state` and `verified` change only in the decision PR. `t0 gate aposta|spec` runs the checks in CI at PR head, and approving the PR is the decision.
-  - Derived keys belong to `kb-render` only. That covers Slice `state` after `ready` (`building`, `in-review`, `done`, `blocked`), `pr`, `audit`, `jira` (write-once from `jira-linked` records), `markers_open` and `status`, plus `index.md`, `log.md` and `changeset.md`.
+  - Knowledge types (Idea after `new`, Bet, Spec, ADR, Policy, Rotation, Product `adoption_stage`): `state` changes only in the decision PR. `t0 gate aposta|spec` runs the checks in CI at PR head, and approving the PR is the decision. Nobody writes `verified` by hand or in the decision PR: on merge, `t0 ci <ref> --state merged` records the approvals in a `pr-merged` record and `kb-render` derives `verified` from it.
+  - Derived keys belong to `kb-render` only. That covers Slice `state` after `ready` (`building`, `in-review`, `done`, `blocked`), `verified` on every stateful type (from `pr-merged` approvals), `pr`, `audit`, `jira` (write-once from `jira-linked` records), `markers_open` and `status`, plus `index.md`, `log.md` and `changeset.md`.
   - `view.fold` is the read-side index and anomaly detector. It does not own state.
   - Rapida track: the aposta PR writes Bet `active` and its one Slice `ready`. There is no Spec. The last merge runs `t0 bet ship`.
 - **Ideas enter through the knowledge lane** as a small PR. `t0 new idea` reserves `IDEA-NNNN` by scanning `main` plus open branches. A collision fails L1 `uid-unique`.
@@ -30,11 +30,15 @@ Approved by the user on 2026-10-28 (decisions D1 to D8, section 12).
 - **Pods.** `dev-tooling`, `paco`, `portal-metricas`, used as product slugs.
 - **WIP.** At most 2 slices building per person (Policy `wip`). `t0 slice dor` enforces it.
 
+**Branches.** KB knowledge-lane work goes on `bet/BET-NNN/<handle>` (spec, slices, glossary, Design section). Product code goes on `<KEY>-<slug>` in the slice's repo, created by `t0 slice start <KEY>`.
+
+**Policy `models` role keys.** `architect-runner`, `arena-runner`, `judge`, `reviewer`, `swarm-worker`, `verifier`, each mapping a tool to a model, plus `families_approved`.
+
 ## 3. KB types (profile `t0-team`)
 
 There are 20 types: Idea, Bet, Spec, Slice, ADR, Ritual, Ritual Record, Transcript, Harness Item, Product, Workspace, Eval Suite, Adoption Report, Policy, Template, Person, Role, Rotation, Glossary Term and Step. OKF's own Log and Reference also apply.
 
-- **Spec sections.** Spec has optional Plano and Design sections. Product carries the live spec, and the contract is a section of it.
+- **Spec sections.** Spec has optional Plano and Design sections. Person has `junior: true|false`, which drives the "Em minhas palavras" rule. Product carries the live spec, and the contract is a section of it.
 - **Ritual.** This is the definition concept. The engine reads its `inputs`.
 - **Removed.** Plan, Assessment, Bugfix, Cycle Record, Accountability, PI Outcome and Contract.
 - **Deferred.** Metric Snapshot waits for the metrics work.
@@ -84,33 +88,33 @@ Raw transcripts live only in `~/.t0/inbox/`. The PreToolUse read guard blocks ag
 
 ## 6. Skills
 
-There are 15 skills, flat at `plugin/skills/<name>/SKILL.md`, with descriptions up to 300 chars. "Compose" means upstream text with patches applied at build time (section 7). "Own" means t0 text only.
+There are 15 skills, hand-written in pt-BR at `plugin/skills/<name>/SKILL.md`, with descriptions up to 300 chars. Each one is based on its reference skill (MP = mattpocock-skills 1.3.1, PS = pstack 0.15.25, read from the local plugin caches), keeping what works in the reference and writing the t0 behavior in directly. There is no vendoring. `metadata.credits` names the reference and its version. "Own" means there is no reference.
 
-| Skill | Kind | Base (MP = mattpocock-skills, PS = pstack) | Behavior |
+| Skill | Kind | Reference (MP = mattpocock-skills, PS = pstack) | Behavior |
 |---|---|---|---|
-| `t0` | own, PS `poteto-mode` on watch | | Entry and orchestrator in poteto-mode's shape. It holds the non-negotiables (draft-only, three human decisions, KB writes only through `t0`, pt-BR output), the principles index and the playbook router. It also holds the subagent rules, with `t0-agent` |
+| `t0` | based on | PS `poteto-mode` | Entry and orchestrator in poteto-mode's shape. It holds the non-negotiables (draft-only, three human decisions, KB writes only through `t0`, pt-BR output), the principles index and the playbook router. It also holds the subagent rules, with `t0-agent` |
 | `idea-capture` | own | | `t0 new idea` with dedup |
-| `grill` | compose | MP `grilling` + `domain-modeling` | glossary to KB `glossary/` (bilingual), ADR through `t0 new adr` |
-| `prototype` | compose | MP `prototype` | works off main; ends with `t0 idea prototype --verdict` |
+| `grill` | based on | MP `grilling` + `domain-modeling` | glossary to KB `glossary/` (bilingual), ADR through `t0 new adr` |
+| `prototype` | based on | MP `prototype` | works off main; ends with `t0 idea prototype --verdict` |
 | `bet-new` | own | | `t0 new bet --track rapida\|bet` opens the aposta PR. On rapida it also writes the slice |
-| `bet-spec` | compose | MP `to-spec` | drop setup pointer and tracker publish; keep the seams check; Template spec with Critérios de aceite (bullets), Como verificar, Tier, optional Design |
-| `bet-slice` | compose | MP `to-tickets` | drop tracker and `.scratch/`; keep the approval loop; one file per slice on the spec branch, so one PR carries the gate spec; Jira mirror in CI after merge |
-| `architect` | compose | PS `architect` | grounding through KB MCP and repo reads; runners from Policy `models`; checkpoint mandatory; Phases D and E dropped; output to the spec Design section and an ADR |
-| `arena` | compose | PS `arena` | models from Policy; poteto-mode subagent pointer replaced; worktree candidates never pushed; `same-family` label |
-| `swarm` | compose | PS `swarm` | same model patch; cloud becomes a worktree |
-| `slice-build` | compose | MP `implement` + `tdd` + `pr`, PS `show-me-your-work` + `in-your-own-words` | `t0 slice dor`/`start`, branch `<KEY>-slug`, draft PR with `Jira`, `Tier`, `Trilha` and "Em minhas palavras"; `.audit/<KEY>.tsv` committed |
-| `slice-verify` | compose | MP `code-review`, PS `blast-radius` + `swarm`, project `verify-<app>` | review against the KB spec; Tier 2 runs the blast-radius proof ladder without its arena step; app evidence through `verify-<app>`; a repeated error becomes a Harness Item |
-| `verify-setup` | compose | PS `create-` + `maintain-verification-skill` | writes `.t0/skills/verify-<app>/` in the product repo, and `t0 setup` links it per tool; the maintain half feeds Harness Health with one draft PR |
+| `bet-spec` | based on | MP `to-spec` | drop setup pointer and tracker publish; keep the seams check; Template spec with Critérios de aceite (bullets), Como verificar, Tier, optional Design |
+| `bet-slice` | based on | MP `to-tickets` | drop tracker and `.scratch/`; keep the approval loop; one file per slice on the spec branch, so one PR carries the gate spec; Jira mirror in CI after merge |
+| `architect` | based on | PS `architect` | grounding through KB MCP and repo reads; runners from Policy `models`; checkpoint mandatory; Phases D and E dropped; output to the spec Design section and an ADR |
+| `arena` | based on | PS `arena` | models from Policy; poteto-mode subagent pointer replaced; worktree candidates never pushed; `same-family` label |
+| `swarm` | based on | PS `swarm` | models from Policy `models`; cloud becomes a worktree; `same-family` label |
+| `slice-build` | based on | MP `implement` + `tdd` + `pr`, PS `show-me-your-work` + `in-your-own-words` | `t0 slice dor`/`start`, branch `<KEY>-slug`, draft PR with `Jira`, `Tier`, `Trilha` and "Em minhas palavras"; `.audit/<KEY>.tsv` committed |
+| `slice-verify` | based on | MP `code-review`, PS `blast-radius` + `swarm`, project `verify-<app>` | review against the KB spec; Tier 2 runs the blast-radius proof ladder without its arena step; app evidence through `verify-<app>`; a repeated error becomes a Harness Item |
+| `verify-setup` | based on | PS `create-` + `maintain-verification-skill` | writes `.t0/skills/verify-<app>/` in the product repo, and `t0 setup` links it per tool; the maintain half feeds Harness Health with one draft PR |
 | `ritual` | own (C2 engine) | | `ritual <slug> open\|close [--transcript F]`, transcript redacted first |
-| `harness-fix` | compose | PS `correct` + MP `retro` | highest rung of the harness ladder; workspace-scoped logs; one draft PR per item |
+| `harness-fix` | based on | PS `correct` + MP `retro` | highest rung of the harness ladder; workspace-scoped logs; one draft PR per item |
 
 **`/t0` playbooks** are t0's own: `ideia`, `rapida`, `bet`, `slice`, `harness`, `ritual`.
 
-**Composed from pstack playbooks:** `investigation`, `bug-fix`, `feature`, `refactoring`, `prototype`, `perf-issue`.
+**General playbooks**, written in pt-BR from the pstack ones: `investigation`, `bug-fix`, `feature`, `refactoring`, `prototype`, `perf-issue`.
 
-**Not shipped.** These ship, merge, open ready PRs or read raw transcripts: `opening-a-pr`, `babysit`, `shipping`, `autopilot-*`, `orchestrate`, `multi-phase-plan`, `session-pickup`.
+**Not carried over.** These ship, merge, open ready PRs or read raw transcripts: `opening-a-pr`, `babysit`, `shipping`, `autopilot-*`, `orchestrate`, `multi-phase-plan`, `session-pickup`.
 
-**Principles vendored (19):**
+**Principles** (19), in pt-BR in `t0/references/principios.md`, one short paragraph each, from the pstack `principle-*` skills:
 - laziness-protocol, foundational-thinking, subtract-before-you-add, minimize-reader-load, build-the-lever;
 - model-the-domain, boundary-discipline, type-system-discipline, make-operations-idempotent, separate-before-serializing-shared-state;
 - prove-it-works, fix-root-causes, sequence-verifiable-units, test-behavior-not-implementation;
@@ -119,28 +123,13 @@ There are 15 skills, flat at `plugin/skills/<name>/SKILL.md`, with descriptions 
 
 **Subagents** (`plugin/agents/`, generated per tool): `t0-agent`, `spec-reviewer`, `standards-reviewer`, `verifier`.
 
-## 7. Upstream sync
+## 7. References and credits
 
-Upstream text is vendored byte-identical. Each skill is composed at build time from a recipe. The shipped `SKILL.md` is one self-contained file.
+The skills are t0's own pt-BR text. The upstream skills are reference material only.
 
-- **Vendor.** `vendor/<stream>/...` keeps upstream's tree shape and its `LICENSE`, plus `pr/CREDITS.md`. It is pinned by sha256 in `upstream/upstream.lock`, with the commit recorded as advisory. It is never edited and never shipped as-is.
-- **Recipe.** Each skill has `skills-src/<name>/skill.toml`, with frontmatter, `[[part]]` entries (`from = "<stream>:<path>"` or `own = "<file>.md"`) and patches. The patch kinds are:
-  - `drop_section` and `replace_section`, by heading;
-  - `drop_line` and `replace_line`, by a literal substring that must match exactly once;
-  - `append`.
-
-  A global rewrite turns `Call the Skill tool with "<x>"` into a pointer to the composed section `<x>`. It fails the build when `<x>` isn't composed in.
-- **Streams.** `upstream/streams.toml` holds, per stream, `repo`, `subdir`, `ref`, `paths`, `renamed` and `watch`. It also holds `local`, the dev's plugin cache, which is the fallback when GitHub is blocked.
-  - mattpocock: `github.com/mattpocock/skills` at `v1.3.1`.
-  - pstack: `github.com/cursor/plugins` subdir `pstack`, pinned by commit. The pstack tag scheme is not verified.
-  - `watch` lists files reported on every bump for a manual port. Today that is only `poteto-mode/SKILL.md`.
-
-**Commands:**
-- **`t0 upstream status`.** Shows changed, added and removed files per stream, which skills compose each one, and untracked new upstream skills. It exits non-zero when a tracked path vanished without a `renamed` entry.
-- **`t0 upstream pull <stream> [--ref R]`.** Refreshes `vendor/`, rewrites the lock, runs `t0 gen` and writes `upstream/reports/<stream>-<from>-<to>.md`. The Harness Keeper commits it and opens a draft PR. Pulling at the same ref is a no-op.
-- **`t0 gen --check`** (CI). Vendor files match the lock, every patch anchor matches once, every `Skill` call or `../<name>` reference resolves, and the shipped files equal a fresh compose.
-
-**Loop.** Weekly, `status` feeds Harness Health. When something has moved, the Harness Keeper runs `pull` and fixes the patches that a broken anchor points to. Someone skims the clean changes for behavior worth adopting, which becomes a Harness Item. Evals prove the removed behaviors stay gone, and then the PR merges and the version bumps.
+- `THIRD_PARTY_NOTICES.md` carries the MIT notices of mattpocock-skills and pstack (plus the Humanlayer credit carried by MP `pr`). Each SKILL.md lists its reference in `metadata.credits`.
+- Nothing is generated from upstream. The one copied file is PS `show-me-your-work/scripts/log.sh` (as `slice-build/scripts/log.sh`, MIT header kept), for its CSV-injection guard.
+- Following upstream changes is manual. When the Harness Keeper sees a new version of either plugin, they read its CHANGELOG in Harness Health and open a Harness Item for anything worth porting.
 
 ## 8. Enforcement
 
@@ -160,15 +149,12 @@ The forge adapter's `open_pr` has no `draft` parameter, and auto-merge is accept
 ```
 toolkit/                 python package `t0` (pyproject, src/t0, tests)
   design/                this file, STREAMS.md, history
-vendor/                  [vendor] mattpocock/, pstack/
-skills-src/<name>/       [src] skill.toml + t0-owned .md
-upstream/                streams.toml [src], upstream.lock [gen], reports/ [gen]
 okf-template/            the KB starter, shipped as package data
-plugin/                  [gen] everything below
+plugin/                  skills/ and .mcp.json are [src]; the rest is [gen]
 methodology/  research/
 ```
 
-**Plugin (all generated by `t0 gen`):**
+**Plugin:**
 
 ```
 plugin/
@@ -176,9 +162,9 @@ plugin/
   .mcp.json  mcp.json         t0-kb -> `t0 mcp`
   hooks/hooks.json            -> `t0 hook <event> --tool <t>`
   agents/                     t0-agent, spec-reviewer, standards-reviewer, verifier
-  skills/<15>/SKILL.md        (+ references/ copied from upstream)
-  evals/                      `claude plugin eval` cases
-  THIRD_PARTY_NOTICES.md      from vendor/*/LICENSE + streams.toml
+  skills/<15>/SKILL.md        [src] pt-BR, + references/ per skill
+  evals/                      [src] `claude plugin eval` cases
+  THIRD_PARTY_NOTICES.md      [src] MIT notices of the references
 ```
 
 The plugin directory has no Python. Hooks and MCP call `t0` on PATH, and the plugin version equals the package version.
@@ -189,16 +175,18 @@ The plugin directory has no Python. Hooks and MCP call `t0` on PATH, and the plu
 t0 setup                       product repo: AGENTS.md, pointers, hooks, verify-skill links
 t0 kb check [--level L0|L1|L2] [--format text|github|json] [--changed-from REF]
 t0 kb find|get|render|push|init
+t0 kb propose -m MSG [--dry-run]   draft knowledge PR for the current branch (local branch + commit with no forge)
 t0 new idea|bet|spec|slice|adr|harness [--dry-run]
 t0 idea prototype <IDEA> --verdict segue|ajusta|mata [--ref R]
 t0 log progress|decision|blocker|kill "<texto>" [--bet B] [--story K]
-t0 gate aposta|spec <ref> [--dry-run] [--ci]
-t0 ritual <slug> open|close [--transcript F]
+t0 gate aposta|spec <ref> [--dry-run] [--ci]   state + status in the decision PR; never `verified`
+t0 adr accept <ADR> [--dry-run]  knowledge-lane edit to `state: accepted`, draft PR to the deciders (as `kb propose`)
+t0 ritual <slug> open|close [--decisions FILE] [--transcript F]
 t0 transcript redact <file> [--dry-run]
-t0 slice dor|start <KEY>       t0 bet detect|use|ship      t0 ci <KEY>
+t0 slice dor|start <KEY>       t0 bet detect|use|ship
+t0 ci <KEY|ref> --pr P --state draft|ready|merged [--approval A]   records for kb-render; on a merged decision PR, the approvals behind `verified`
 t0 jira sync [--apply] [--tracker file:<dir>]
 t0 context [ref] [--format agents|delta|subagent]
-t0 upstream status|pull
 t0 gen [--check] [--scope plugin|kb] [--src S] [--out O]
 t0 hook <event> [--tool claude|copilot|kiro]     (stdin JSON, exit 2 blocks)
 t0 mcp [--kb DIR] [--read-only]
@@ -230,13 +218,10 @@ Context budgets: the card is 8,000 chars, the delta is 3,000, and the subagent c
 - `slice-build-commits-audit-log`;
 - `arena-labels-same-family`.
 
-There is one eval for each patch that removes a behavior.
+There is one eval for each behavior where t0 departs from its reference skill.
 
 **Deterministic tests (pytest):**
 - one negative fixture per checker rule;
-- one test per patch kind;
-- "a broken anchor fails gen";
-- "a vanished path fails upstream status";
 - the redaction corpus.
 
 The cross-agent runner (Copilot CLI, kiro-cli) is deferred.
@@ -246,8 +231,8 @@ The cross-agent runner (Copilot CLI, kiro-cli) is deferred.
 | # | Decision |
 |---|---|
 | D1 | poteto-mode (as `/t0`), arena and swarm enter the toolkit; §11 updated |
-| D2 | Build-time composition (vendor + recipe + patches) instead of runtime overlays or forks |
-| D3 | `/t0` is t0-owned text, poteto-mode on `watch` |
+| D2 | Skills hand-written in pt-BR from the reference skills; no vendoring, composition or upstream sync tooling (revised 2026-10-28, replacing build-time composition) |
+| D3 | `/t0` is t0's own pt-BR text in poteto-mode's shape |
 | D4 | Records lane `batch` daily by default, `auto` after security confirms |
 | D5 | `verify-<app>` lives at `.t0/skills/verify-<app>/` in product repos, linked per tool by `t0 setup` (unverified on Copilot and Kiro) |
 | D6 | Subagent card budget is 1,500 chars |

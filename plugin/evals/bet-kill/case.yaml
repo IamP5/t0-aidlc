@@ -1,0 +1,47 @@
+{
+ "schema_version": "1.1",
+ "name": "bet-kill",
+ "description": "mata a BET-003: o time do Copilot vai lançar versão nativa no plugin manager, não precisa mais.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 20,
+  "timeout_seconds": 900,
+  "prompt": "mata a BET-003: o time do Copilot vai lançar versão nativa no plugin manager, não precisa mais."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "kill-via-t0",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 log kill",
+   "min": 1
+  },
+  {
+   "name": "no-hand-edit-state",
+   "type": "tool_used",
+   "tool": "Edit",
+   "input_match": "BET-003/bet\\.md",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "kill-with-reason",
+   "type": "llm",
+   "criteria": "Pass if the agent recorded the kill of BET-003 through `t0 log kill` with the stated reason and did not edit the bet's state by hand; leaving the change as a KB branch or PR that awaits the Bet Owner's approval is correct. Reported briefly in Portuguese."
+  }
+ ]
+}

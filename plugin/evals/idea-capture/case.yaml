@@ -1,0 +1,46 @@
+{
+ "schema_version": "1.1",
+ "name": "idea-capture",
+ "description": "anota uma ideia aí: o `t0-harness` podia gerar o AGENTS.md já com a seção de verificação, porque todo repo novo esquece. Quem pediu foi o pessoal da s",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 15,
+  "timeout_seconds": 600,
+  "prompt": "anota uma ideia aí: o `t0-harness` podia gerar o AGENTS.md já com a seção de verificação, porque todo repo novo esquece. Quem pediu foi o pessoal da squad de pagamentos."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-idea-capture",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "idea-capture",
+   "min": 1
+  },
+  {
+   "name": "t0-new-idea",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 new idea",
+   "min": 1
+  },
+  {
+   "name": "reports-id-briefly",
+   "type": "llm",
+   "criteria": "Pass if the final message tells the user the new idea id (IDEA-NNNN), in Portuguese, and does not ask more than one follow-up question. Fail if it invents a bet, a spec or opens anything beyond the idea."
+  }
+ ]
+}

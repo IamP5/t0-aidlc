@@ -1,0 +1,39 @@
+{
+ "schema_version": "1.1",
+ "name": "ritual-retro",
+ "description": "fecha a retro do mês. O que saiu: a daily do time tá boa; o Harness Health de 20 min tá curto, vamos testar 30 min no próximo mês. Ninguém quer mudar ",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 30,
+  "timeout_seconds": 900,
+  "prompt": "fecha a retro do mês. O que saiu: a daily do time tá boa; o Harness Health de 20 min tá curto, vamos testar 30 min no próximo mês. Ninguém quer mudar mais nada."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "retro-close",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "t0 ritual retro close",
+   "min": 1
+  },
+  {
+   "name": "adr-only-if-method-changes",
+   "type": "llm",
+   "criteria": "Pass if the agent closed the retro with t0 and, because a methodology parameter changes (Harness Health from 20 to 30 min, as an experiment), proposed or drafted an ADR (via t0 new adr) on a KB branch rather than editing methodology docs directly, in Portuguese. Fail if it rewrote the methodology without an ADR or merged anything."
+  }
+ ]
+}

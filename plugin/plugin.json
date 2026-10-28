@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0/plugin.json",
+  "name": "t0",
+  "version": "0.1.0",
+  "description": "AIDLC t0 toolkit: OKF knowledge base, methodology gates, rituals and agent adapters",
+  "author": {
+    "name": "t0"
+  },
+  "keywords": [
+    "t0",
+    "aidlc",
+    "okf",
+    "knowledge-base",
+    "jira",
+    "methodology"
+  ]
+}

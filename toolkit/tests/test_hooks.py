@@ -166,3 +166,94 @@ def test_hooks_table_covers_every_event():
     from t0.hooks import Event
 
     assert {h.event for h in HOOKS} == set(Event)
+
+
+BLOCKED_GH = [
+    "gh pr ready", "gh pr ready 12", "gh pr merge 12 --squash", "gh pr merge --auto", "gh pr review 12 --approve",
+    "gh pr review -a", 'gh pr create --title x --body "y"', "gh pr create --fill", "gh pr create --draft=false",
+    "cd api && gh pr create -t x -b y", "GH_TOKEN=x gh pr merge 3",
+]
+ALLOWED_GH = [
+    "gh pr create --draft --title x --body y", "gh pr create -d -t x -b y", "gh pr create --fill --draft",
+    "gh pr ready 12 --undo", "gh pr review 12 --comment -b ok", "gh pr view 12 --json isDraft", "gh pr list",
+    'gh pr comment 12 --body "não faça gh pr merge"', "gh issue create -t x",
+]
+
+
+@pytest.mark.parametrize("cmd", BLOCKED_GH)
+def test_gh_pr_blocked(env, cmd):
+    code, out, err = bash(cmd, env)
+    assert code == 2 and "draft" in err and out == ""
+
+
+@pytest.mark.parametrize("cmd", ALLOWED_GH)
+def test_gh_pr_allowed(env, cmd):
+    assert bash(cmd, env) == (0, "", "")
+
+
+def mcp(env, name, **ti):
+    return claude("pre-tool", env, tool_name=name, tool_input=ti)
+
+
+@pytest.mark.parametrize("name, ti", [
+    ("mcp__github__create_pull_request", {"title": "x", "head": "b", "base": "main"}),
+    ("mcp__github__create_pull_request", {"title": "x", "draft": False}),
+    ("mcp__plugin_github_github__merge_pull_request", {"pullNumber": 3}),
+    ("mcp__github__merge_pull_request", {"pullNumber": 3, "draft": True}),
+    ("mcp__github__update_pull_request", {"pullNumber": 3, "draft": False}),
+])
+def test_github_mcp_pr_blocked(env, name, ti):
+    code, _, err = mcp(env, name, **ti)
+    assert code == 2 and name in err and "draft" in err
+
+
+@pytest.mark.parametrize("name, ti", [
+    ("mcp__github__create_pull_request", {"title": "x", "draft": True}),
+    ("mcp__github__update_pull_request", {"pullNumber": 3, "title": "novo"}),
+    ("mcp__github__update_pull_request", {"pullNumber": 3, "draft": True}),
+    ("mcp__github__get_pull_request", {"pullNumber": 3}),
+])
+def test_github_mcp_pr_allowed(env, name, ti):
+    assert mcp(env, name, **ti) == (0, "", "")
+
+
+def test_copilot_mcp_create_pr_needs_draft(env):
+    raw = {"cwd": str(env), "toolName": "github-mcp-server-create_pull_request",
+           "toolArgs": json.dumps({"title": "x"})}
+    assert run_hook("pre-tool", json.dumps(raw).encode())[0] == 2
+    raw["toolArgs"] = json.dumps({"title": "x", "draft": True})
+    assert run_hook("pre-tool", json.dumps(raw).encode())[0] == 0
+
+
+def test_claude_pre_tool_matcher_covers_mcp_tools():
+    import re
+
+    matcher = next(h.claude[1] for h in HOOKS if h.claude and h.claude[0] == "PreToolUse")
+    assert re.fullmatch(matcher, "mcp__github__create_pull_request")
+    assert re.fullmatch(matcher, "Bash")
+
+
+LAUNCHER = Path(__file__).resolve().parents[2] / "plugin/hooks/t0-hook.sh"
+
+
+@pytest.mark.parametrize("with_kb", [True, False])
+def test_launcher_exports_pinned_bin_and_workspace_kb_on_session_start(tmp_path, with_kb):
+    import subprocess
+
+    ws = tmp_path / "ws"
+    (ws / ".t0/bin").mkdir(parents=True)
+    (ws / ".t0/workspace.json").write_text('{"schema": 1, "product": "p"}')
+    stub = ws / ".t0/bin/t0"
+    stub.write_text("#!/bin/sh\nexit 0\n")
+    stub.chmod(0o755)
+    (ws / "api/src").mkdir(parents=True)
+    if with_kb:
+        (ws / "kb").mkdir()
+    env_file = tmp_path / "env.sh"
+    p = subprocess.run(["sh", str(LAUNCHER), "session-start"], cwd=ws / "api/src", input="{}", text=True,
+                       capture_output=True, env={"PATH": "/usr/bin:/bin", "CLAUDE_ENV_FILE": str(env_file)})
+    assert p.returncode == 0, p.stderr
+    (tmp_path / "elsewhere").mkdir()
+    seen = subprocess.run(["sh", "-c", f'. "{env_file}"; cd "{tmp_path / "elsewhere"}"; command -v t0; echo "kb=${{T0_KB:-}}"'],
+                          text=True, capture_output=True, env={"PATH": "/usr/bin:/bin"}).stdout.splitlines()
+    assert seen == [str(stub), f"kb={ws / 'kb' if with_kb else ''}"]

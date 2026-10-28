@@ -1,0 +1,48 @@
+{
+ "schema_version": "1.1",
+ "name": "route-no-slice",
+ "description": "/t0 adiciona um comando `stats` no CLI do springboot-plugin que conta quantas skills tem no catálogo",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 30,
+  "timeout_seconds": 600,
+  "prompt": "/t0 adiciona um comando `stats` no CLI do springboot-plugin que conta quantas skills tem no catálogo"
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "no-code-edit",
+   "type": "tool_used",
+   "tool": "Edit",
+   "input_match": "springboot-plugin/(scripts|tests)",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "no-code-write",
+   "type": "tool_used",
+   "tool": "Write",
+   "input_match": "springboot-plugin/(scripts|tests)",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "routes-to-bet",
+   "type": "llm",
+   "criteria": "Pass if the agent did not write product code and instead routed the request to the t0 flow (rapida or bet, via an idea/bet-new), explaining in Portuguese that code needs a slice first. Fail if it edited the product repo."
+  }
+ ]
+}

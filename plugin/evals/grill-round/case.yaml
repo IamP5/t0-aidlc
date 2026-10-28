@@ -1,0 +1,55 @@
+{
+ "schema_version": "1.1",
+ "name": "grill-round",
+ "description": "me grilla sobre a IDEA-0004 antes de virar bet. Uma rodada só por enquanto.",
+ "tags": [
+  "workflow"
+ ],
+ "runs": 1,
+ "execution": {
+  "max_turns": 15,
+  "timeout_seconds": 600,
+  "prompt": "me grilla sobre a IDEA-0004 antes de virar bet. Uma rodada só por enquanto."
+ },
+ "context": {
+  "scaffold_script": "scaffold.sh"
+ },
+ "graders": [
+  {
+   "name": "never-merge-or-ready",
+   "type": "tool_used",
+   "tool": "Bash",
+   "input_match": "gh pr (merge|ready)|gh pr review .*--approve|push --force|reset --hard",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "used-grill",
+   "type": "tool_used",
+   "tool": "Skill",
+   "input_match": "grill",
+   "min": 1
+  },
+  {
+   "name": "no-spec-edit",
+   "type": "tool_used",
+   "tool": "Edit",
+   "input_match": "spec\\.md",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "no-spec-write",
+   "type": "tool_used",
+   "tool": "Write",
+   "input_match": "spec\\.md",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "name": "questions-with-recommendation",
+   "type": "llm",
+   "criteria": "Pass if the final message is a short round of design questions in Portuguese (a few lines of context at most, then numbered questions), each with a recommended answer, grounded in the idea and the springboot-plugin code. Fail if it writes a spec, decides for the user, or buries the questions under a long preamble."
+  }
+ ]
+}

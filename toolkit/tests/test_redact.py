@@ -79,6 +79,40 @@ def test_off_record_spans_removed_and_counted():
     assert report.total == 0
 
 
+OFF_RECORD_UTTERANCES = [
+    ("[09:34] Ana: fora do registro: o fornecedor atrasou de novo.",
+     "[09:34] Ana: [trecho fora do registro removido]", 1),
+    ("[09:35] Bruno: Fora do registro, cpf 529.982.247-25 do gerente\n[09:36] Ana: voltando à pauta",
+     "[09:35] Bruno: [trecho fora do registro removido]\n[09:36] Ana: voltando à pauta", 1),
+    ("Carla: FORA DO REGISTRO : isso não sai\nfora do registro, sem orador também some",
+     "Carla: [trecho fora do registro removido]\n[trecho fora do registro removido]", 2),
+    ("[10:00] Ana: fora do registro: um\n[10:01] Ana: dito [fora do registro]dois[/fora do registro] fim",
+     "[10:00] Ana: [trecho fora do registro removido]\n[10:01] Ana: dito [trecho fora do registro removido] fim", 2),
+]
+
+OFF_RECORD_MENTIONS = [
+    "[09:40] Ana: isso fica fora do registro: combinado?",
+    "[09:41] Bruno: a reunião fora do registro foi ontem",
+    "Ana: fora do registro foi pedido duas vezes",
+]
+
+
+@pytest.mark.parametrize("raw,expected,spans", OFF_RECORD_UTTERANCES)
+def test_off_record_utterance_removed_keeping_speaker(raw, expected, spans):
+    out, report = redact(raw)
+    assert out == expected
+    assert report.off_record_spans == spans
+    assert report.total == 0
+    again, report2 = redact(out)
+    assert again == out and report2.off_record_spans == 0
+
+
+@pytest.mark.parametrize("raw", OFF_RECORD_MENTIONS)
+def test_off_record_mentioned_mid_utterance_is_kept(raw):
+    out, report = redact(raw)
+    assert out == raw and report.off_record_spans == 0
+
+
 def test_unclosed_off_record_removes_to_end():
     out, report = redact("antes [fora do registro] tudo isso some")
     assert out == "antes [trecho fora do registro removido]"
