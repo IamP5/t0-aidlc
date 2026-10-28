@@ -1,6 +1,6 @@
 # Fluxo
 
-Por dentro do time não tem sprint. A ideia anda assim que aparece, e só três pontos do caminho pedem decisão humana registrada.
+Dentro do time não existe sprint. A ideia anda assim que aparece, e só três pontos do caminho pedem uma decisão humana registrada.
 
 ## O caminho inteiro
 
@@ -20,47 +20,47 @@ Os colchetes marcam as três decisões humanas.
 
 ### 1. Ideia
 
-Qualquer pessoa registra a qualquer hora com a skill `idea-capture`. Ela pede só três coisas (problema, para quem e sinal), procura duplicata no KB e roda `t0 new idea`. A ideia entra como Idea `new` em `ideas/IDEA-NNNN.md`, num PR pequeno.
+Qualquer pessoa registra uma ideia, a qualquer hora, com a skill `idea-capture`. A skill pede só três coisas (problema, para quem e sinal), procura duplicata no KB e roda `t0 new idea`. A ideia entra como Idea `new` em `ideas/IDEA-NNNN.md`, num PR pequeno.
 
-Ideia também sai de gravação de daily, pelo `ritual <slug> close --transcript`, e de issue aberta no Jira por squad ou pelo ART. Nos dois casos entra sem `verified` até alguém confirmar.
+Uma ideia também pode sair da gravação de uma daily, pelo `ritual <slug> close --transcript`, ou de uma issue que uma squad ou o ART abriu no Jira. Nos dois casos, a ideia entra sem `verified` até alguém confirmar.
 
 ### 2. Protótipo
 
-Minutos a horas, sem aprovação, sozinho ou ao vivo na daily do pod com o agente. A skill `prototype` trabalha numa branch descartável `proto/<IDEA>-<slug>` do repo de produto, que nunca vai para o main e nunca vira base de código. Só dados fictícios.
+O protótipo leva de minutos a horas e não pede aprovação. Ele pode ser feito sozinho ou ao vivo na daily do pod, com o agente. A skill `prototype` trabalha numa branch descartável `proto/<IDEA>-<slug>` do repo de produto. Essa branch nunca vai para o main e nunca vira base de código. O protótipo usa só dados fictícios.
 
-O protótipo termina num veredito gravado na Idea com `t0 idea prototype`:
+O protótipo termina num veredito, que `t0 idea prototype` grava na Idea:
 
 | Veredito | Quando |
 |---|---|
 | `segue` | a ideia se sustentou e pode virar bet |
 | `ajusta` | tem algo ali, mas a pergunta ou a solução muda |
-| `mata` | a ideia não se sustenta; o motivo fica registrado para ela voltar só com fato novo |
+| `mata` | a ideia não se sustenta; o motivo fica registrado, e ela só volta com fato novo |
 
-No KB entram só o veredito e a referência da branch. O código do protótipo fica fora.
+O KB recebe só o veredito e a referência da branch. O código do protótipo fica fora.
 
 ### 3. Aposta: vira bet?
 
-O Bet Owner decide na daily do pod. A skill `bet-new` roda `t0 new bet` e abre o PR da aposta em draft. Aprovar esse PR é decidir. O Lead também aprova quando a bet cruza pods, é Tier 2 ou passa de 1 semana de apetite. O `t0 gate aposta --ci` confere isso no CI.
+A bet é o trabalho com apetite de até 2 semanas que o Bet Owner (o sênior que facilita a daily do pod) decide fazer depois do protótipo. O Bet Owner decide na daily do pod. A skill `bet-new` roda `t0 new bet` e abre o PR da aposta em draft. Aprovar esse PR é a decisão. O Lead também aprova em três casos: quando a bet cruza pods, quando é Tier 2 (o nível de review mais alto) ou quando passa de 1 semana de apetite. O `t0 gate aposta --ci` confere isso no CI. Um gate é o check de CI que confere uma decisão humana no PR.
 
-A bet carrega `appetite`, `hypothesis`, `kill_criteria` e `success_metric`. O intent (problema, para quem, sinal, o que entra e o que fica fora) mora no corpo.
+A bet carrega `appetite`, `hypothesis`, `kill_criteria` e `success_metric`. O intent (problema, para quem, sinal, o que entra e o que fica fora) fica no corpo da bet.
 
 ### 4. Spec e slices
 
-Com a bet `active`, o pod fecha o spec junto com o agente, em mob, na daily do pod. A skill `grill` afia termos e decisões, a `bet-spec` escreve o spec e a `bet-slice` corta os slices. Quando o desenho cruza fronteira de função ou não tem precedente, a `architect` entra entre as duas.
+O spec é o contrato da bet, e cada slice é uma fatia vertical dela. Com a bet `active`, o pod fecha o spec junto com o agente, em mob, na daily do pod. A skill `grill` afia termos e decisões, a `bet-spec` escreve o spec e a `bet-slice` corta os slices. Quando o desenho cruza fronteira de função ou não tem precedente, a `architect` entra entre as duas.
 
-Spec e slices vão para o KB no mesmo PR. O Bet Owner aprova, e o Lead também em Tier 2. O `t0 gate spec --ci` recusa enquanto houver `[PRECISA ESCLARECER]` aberto. Depois do merge, o CI espelha a bet como Feature e cada slice como Story no Jira.
+O spec e os slices vão para o KB no mesmo PR. O Bet Owner aprova, e em Tier 2 o Lead também aprova. O `t0 gate spec --ci` recusa o PR enquanto houver `[PRECISA ESCLARECER]` aberto. Depois do merge, o CI espelha a bet como Feature e cada slice como Story no Jira.
 
 ### 5. Build e Verify
 
-Um slice é um repo e um PR em draft. A skill `slice-build` confere o DoR, abre a branch `<KEY>-<slug>`, constrói teste a teste nas costuras do spec, prova no app real e abre o PR com a trilha `.audit/<KEY>.tsv`. A `slice-verify` revisa antes do humano. Depois vem o review humano pelo tier. O CI move os estados sozinho.
+Um slice é um repo e um PR em draft. A skill `slice-build` confere o DoR, abre a branch `<KEY>-<slug>` e constrói teste a teste nas costuras do spec (os pontos do código onde o comportamento é testado). Depois ela prova o resultado no app real e abre o PR com a trilha `.audit/<KEY>.tsv`. A `slice-verify` revisa o PR antes do humano. Em seguida vem o review humano, conforme o tier. O CI move os estados sozinho.
 
 ### 6. Ship
 
-Merge e release. No merge do último slice, o CI roda `t0 bet ship`: congela o spec da bet e atualiza o spec vivo do produto. A Bet vai para `shipped`, e o aprendizado é escrito no corpo dela.
+Ship é o merge e o release. No merge do último slice, o CI roda `t0 bet ship`, que congela o spec da bet e atualiza o spec vivo do produto. A Bet vai para `shipped`, e o aprendizado é escrito no corpo dela.
 
 ### 7. Degraus de adoção
 
-Cada produto sobe por três degraus (customer zero): o time, depois 2 ou 3 squads piloto, depois o ART. O Lead/AIVA decide com números: uso semanal, retenção e eval. Os pisos estão em [Harness e qualidade](10-harness-e-qualidade.md) e são todos PROPOSTA. O comando `t0 gate degrau` ainda não está na CLI atual.
+Cada produto sobe por três degraus (customer zero): primeiro o time, depois 2 ou 3 squads piloto, depois o ART. O Lead/AIVA decide a subida com números: uso semanal, retenção e eval. Os pisos estão em [Harness e qualidade](10-harness-e-qualidade.md) e são todos PROPOSTA. O comando `t0 gate degrau` ainda não está na CLI atual.
 
 ## Duas trilhas
 
@@ -73,11 +73,11 @@ Regras de fronteira:
 
 - item rápido que precisa de desenho vira bet;
 - bet que não cabe em 2 semanas vira duas;
-- exploração acontece no protótipo;
+- a exploração acontece no protótipo;
 - superfície pública (MCP, CLI, skill, API) é Tier 2 em qualquer trilha;
 - kill é uma linha na Idea (veredito `mata`) ou na Bet (`t0 log kill "<motivo>" --bet <BET>`).
 
-Bet morta conta como resultado. O registro impede que a mesma ideia volte sem fato novo.
+Uma bet morta conta como resultado. O registro impede que a mesma ideia volte sem fato novo.
 
 ## As três decisões humanas
 
@@ -87,28 +87,28 @@ Bet morta conta como resultado. O registro impede que a mesma ideia volte sem fa
 | Spec | Bet Owner; em Tier 2, também o Lead | Spec `approved`, `markers_open: 0`, `verified` de cada aprovador | aprovação do PR de spec e slices (`t0 gate spec` no CI) |
 | Degrau | Lead/AIVA, quando os números saem | Adoption Report `passed`; Product com `adoption_stage` novo e `verified` | `gate degrau <produto>`, ainda fora da CLI atual |
 
-A decisão é um PR no repo do KB que muda o `state`. O `t0 gate` roda os checks no CI, na cabeça do PR. Aprovar o PR é decidir. Ninguém escreve `verified` à mão: no merge, o CI registra quem aprovou e o `kb-render` deriva `verified: { by: human:<aprovador>, at: <data com offset> }` a partir desse registro. PR de spec tem o mesmo SLO do review de código: primeira resposta em até 4 horas úteis.
+Cada decisão é um PR no repo do KB que muda o `state`. O `t0 gate` roda os checks no CI, na cabeça do PR. Aprovar o PR é decidir. Ninguém escreve `verified` à mão. No merge, o CI registra quem aprovou, e o `kb-render` (o workflow que escreve os arquivos e as chaves derivados) deriva `verified: { by: human:<aprovador>, at: <data com offset> }` a partir desse registro. O PR de spec tem o mesmo SLO do review de código: primeira resposta em até 4 horas úteis.
 
-Nenhuma skill aprova nada. Elas preparam a decisão, abrem o PR, mostram a evidência e param.
+Nenhuma skill aprova nada. As skills preparam a decisão, abrem o PR, mostram a evidência e param.
 
 ## Sem sprint interna
 
-Não há compromisso de sprint nem fila semanal de triagem de ideias. A ideia é decidida na daily do pod seguinte ao protótipo. A cadência de 2 semanas fica só onde o ART precisa dela, na Demo.
+O time não tem compromisso de sprint nem fila semanal de triagem de ideias. O pod decide a ideia na daily do pod seguinte ao protótipo. A cadência de 2 semanas fica só onde o ART precisa dela, na Demo.
 
 ## WIP
 
-O WIP é limitado por review pendente, e a Policy `wip` do KB guarda os números:
+O review pendente limita o WIP, e a Policy `wip` do KB guarda os números:
 
-- no máximo 2 slices em `building` ou `in-review` por pessoa;
-- sessões de agente em paralelo dentro desses slices são à vontade;
+- cada pessoa tem no máximo 2 slices em `building` ou `in-review`;
+- dentro desses slices, o número de sessões de agente em paralelo é livre;
 - PR esperando review tem prioridade sobre slice novo;
 - a daily do time olha os slices travados e os reviews parados há mais de 24h.
 
-O `t0 slice dor <KEY>` recusa o slice quando quem vai pegar já está no limite.
+O `t0 slice dor <KEY>` recusa o slice quando quem vai pegá-lo já está no limite.
 
 ## Tiers de review
 
-O tier sai do spec ou do slice e decide quantas pessoas leem o PR. O humano só lê depois que o agente de review e o CI passaram.
+O tier vem do spec ou do slice e decide quantas pessoas leem o PR. O humano só lê depois que o agente de review e o CI passaram.
 
 | Tier | Exemplos | Review mínimo |
 |---|---|---|
@@ -116,13 +116,13 @@ O tier sai do spec ou do slice e decide quantas pessoas leem o PR. O humano só 
 | 1 | feature em ferramenta interna, slice de bet | agente de review e 1 humano; júnior não aprova sozinho |
 | 2 | auth, dado de cliente, permissão de agente, superfície pública, prompt ou modelo de ferramenta que as squads usam | agente de review e 2 humanos, um deles o Bet Owner (o outro pode ser de outro pod); blast radius com prova; cadeia de rastreabilidade completa; "Em minhas palavras" |
 
-Detalhes, incluindo a graduação de confiança, em [Harness e qualidade](10-harness-e-qualidade.md#tiers-de-review).
+Os detalhes, incluindo a graduação de confiança, estão em [Harness e qualidade](10-harness-e-qualidade.md#tiers-de-review).
 
 ## Bet que mexe em vários repos
 
 - Um slice é um repo e um PR. Uma Story que precisaria de dois repos vira dois slices ligados por `depends_on`.
-- Todo PR é deployável sozinho, com expand, migrate e contract, porque não existe merge atômico entre repos.
-- A ordem de merge padrão segue os `depends_on`, provedores primeiro.
+- Todo PR pode ir para deploy sozinho, com expand, migrate e contract, porque não existe merge atômico entre repos.
+- A ordem de merge padrão segue os `depends_on`, com os provedores primeiro.
 - O PR leva no corpo os trailers `Bet:`, `Story:`, `Jira-Feature:`, `Depends-on:` e `KB-Context:`.
 
 ## Estados de cada etapa

@@ -1,6 +1,6 @@
 # Rituais
 
-São seis rituais: cinco internos e o do ART. Cada um abre e fecha por comando, e o registro sai sozinho no KB. Status de trabalho quem dá é o bot, e ritual nenhum serve para isso.
+O time tem seis rituais: cinco internos e o do ART (o trem do SAFe de que o time faz parte). Cada ritual abre e fecha por comando, e o comando grava o registro no KB (o repositório do time, `t0-kb`). Nenhum ritual serve para dar status de trabalho. Quem dá status é o bot.
 
 ## A tabela
 
@@ -13,6 +13,8 @@ São seis rituais: cinco internos e o do ART. Cada um abre e fecha por comando, 
 | Retro | `retro` | uma vez por mês | 60 min | o time | Flow Steward | registro da Retro; ADR quando a metodologia muda |
 | PI Planning / Sense & Respond | `pi` | quando o ART marcar | a do ART | Lead/AIVA | Lead/AIVA | registro com as decisões do ART |
 
+Flow Steward e Harness Keeper são papéis de rodízio de 2 semanas. O Bet Owner é o sênior que decide o que vira bet (uma aposta de até 2 semanas). O Lead/AIVA é o Chapter Lead, que faz a interface com o ART.
+
 ## Como todo ritual roda
 
 ```
@@ -20,31 +22,31 @@ t0 ritual <slug> open
 t0 ritual <slug> close [--transcript <arquivo>] [--dry-run]
 ```
 
-- O `open` monta a pauta a partir do KB. Cada ritual tem uma definição em `rituals/<slug>/ritual.md`, com os `inputs` que o comando lê.
-- Durante o ritual, decisão vira `t0 log decision "<texto> (dono: <pessoa>, prazo: <data>)"`, bloqueio vira `t0 log blocker`, ideia vai pela skill `idea-capture`. Toda decisão tem dono.
-- O `close` grava o Ritual Record em `rituals/<slug>/AAAA-MM-DD.md`, com decisões e donos, roda a transcrição se houve gravação e abre os PRs de decisão que saíram dali.
-- Aposta e spec nunca são aprovadas "no ritual". No ritual, alguém abre ou mostra o PR, e quem decide aprova lá.
+- O `open` monta a pauta a partir do KB. Cada ritual tem uma definição em `rituals/<slug>/ritual.md`, e os `inputs` dessa definição dizem o que o comando lê.
+- Durante o ritual, cada decisão vira `t0 log decision "<texto> (dono: <pessoa>, prazo: <data>)"`, cada bloqueio vira `t0 log blocker` e cada ideia entra pela skill `idea-capture`. Toda decisão tem dono. Quando a decisão é claramente de um papel, o dono é quem ocupa o papel. Um bloqueio que ninguém pegou entra como `(dono: a definir)` e não trava o close.
+- O `close` grava o Ritual Record (o registro da sessão, com decisões e donos) em `rituals/<slug>/AAAA-MM-DD.md`. Se houve gravação, ele roda a transcrição. Ele também abre os PRs das decisões tomadas no ritual.
+- Aposta e spec (o contrato da bet) nunca são aprovadas "no ritual". No ritual, alguém abre ou mostra o PR, e quem decide aprova no PR.
 
-A skill `ritual` conduz isso junto com quem facilita. Ela mostra a pauta como o comando imprimiu, segura o foco e aponta para o digest quando alguém começa a dar status.
+A skill `ritual` conduz o ritual junto com quem facilita. Ela mostra a pauta como o comando imprimiu, mantém o foco e aponta para o digest quando alguém começa a dar status.
 
 ## Daily do time
 
-Todo dia, 10 minutos, o time todo. Facilita o Flow Steward.
+Todo dia, 10 minutos, com o time todo. O Flow Steward facilita.
 
-O `t0 ritual daily-time open` imprime o digest: merges desde a última daily, reviews parados há mais de 24h e bloqueios abertos. Na daily só se fala de duas coisas: bloqueios e pedidos de review. Para cada review parado, alguém assume, e a skill registra `t0 log decision "review de <PR> (dono: <pessoa>)"`. Para cada bloqueio, alguém vira dono.
+O `t0 ritual daily-time open` imprime o digest, o status que o bot monta: merges desde a última daily, reviews parados há mais de 24h, bloqueios abertos e bloqueios sem dono. A daily trata só de dois assuntos: bloqueios e pedidos de review. Cada review parado ganha alguém que assume, e a skill registra `t0 log decision "review de <PR> (dono: <pessoa>)"`. Cada bloqueio ganha um dono.
 
-Antes da daily, o Flow Steward aprova o PR em lote dos registros de passo do dia anterior.
+Antes da daily, o Flow Steward aprova o PR em lote com os registros de passo do dia anterior.
 
 ## Daily do pod
 
-Todo dia, logo depois da daily do time, 30 a 45 minutos. Pode virar uma sessão de mob mais longa quando há spec para fechar. Facilita o Bet Owner. O agente está ao vivo na tela.
+Todo dia, logo depois da daily do time, por 30 a 45 minutos. Quando há spec para fechar, a daily pode virar uma sessão de mob (trabalho em grupo com o agente ao vivo) mais longa. O Bet Owner facilita, e o agente fica ao vivo na tela.
 
-A daily do pod conta como trabalho. É ali que o pod:
+A daily do pod conta como trabalho. Nela, o pod (o grupo do time dono de um produto):
 
-- valida ideias prototipando na hora (`prototype`), até o veredito;
-- decide o que vira bet (`bet-new`, e o Bet Owner aprova o PR);
-- afia ideia ou spec (`grill`);
-- escreve o spec junto (`bet-spec`) e corta os slices (`bet-slice`);
+- valida ideias com um protótipo feito na hora (`prototype`), até chegar ao veredito;
+- decide o que vira bet (`bet-new`), e o Bet Owner aprova o PR;
+- afia uma ideia ou um spec (`grill`);
+- escreve o spec em grupo (`bet-spec`) e corta os slices (`bet-slice`), as fatias verticais da bet, com um repo e um PR cada;
 - escolhe os slices `ready` do dia, respeitando o WIP de 2 por pessoa;
 - destrava quem está travado.
 
@@ -65,46 +67,46 @@ transcript: /transcripts/2026-10-20-daily-pod.md
 
 ## Harness Health
 
-Toda semana, 20 minutos, o time. Facilita o Harness Keeper.
+Toda semana, 20 minutos, com o time. O Harness Keeper facilita.
 
 O `open` traz:
 
-- os erros de agente que se repetiram na semana (Harness Items `open` com duas ocorrências ou mais);
-- o orçamento de contexto: linhas de `AGENTS.md` e hooks contra o teto de 20 em `harness/budget.md`;
-- skills sem uso há 4 semanas, candidatas a sunset;
-- concepts do KB com `stale_after` vencido.
+- os erros de agente que se repetiram na semana, ou seja, os Harness Items `open` com duas ocorrências ou mais (cada Harness Item registra uma classe de erro de agente);
+- o orçamento de contexto: as linhas de `AGENTS.md` e os hooks, contra o teto de 20 em `harness/budget.md`;
+- as skills sem uso há 4 semanas, candidatas a sunset (desligamento);
+- os concepts do KB (os arquivos do KB, um por item) com `stale_after` vencido.
 
-Para cada erro repetido, o time aceita ou recusa o item. Item aceito vai para a skill `harness-fix`, que abre um PR em draft no repo certo. Incidente da semana vira caso de eval. Se saiu versão nova do mattpocock-skills ou do pstack, o Harness Keeper lê o CHANGELOG e abre um Harness Item para o que vale portar.
+O time aceita ou recusa cada erro repetido. Um item aceito vai para a skill `harness-fix`, que abre um PR em draft no repo certo. Cada incidente da semana vira caso de eval. Se saiu versão nova do mattpocock-skills ou do pstack, o Harness Keeper lê o CHANGELOG e abre um Harness Item para o que vale portar.
 
-A trava: o `t0 ritual harness-health close` recusa enquanto algum item aceito estiver sem PR. A saída é abrir os PRs que faltam. Desaceitar um item para o close passar está fora de cogitação.
+A trava: o `t0 ritual harness-health close` recusa fechar enquanto algum item aceito estiver sem PR. Para destravar, o time abre os PRs que faltam. Desaceitar um item só para o close passar não é uma opção.
 
 ## Demo
 
-A cada 2 semanas, junto com a iteração do ART, 30 minutos, o time. Facilita o Flow Steward.
+A cada 2 semanas, junto com a iteração do ART, por 30 minutos, com o time. O Flow Steward facilita.
 
-- Demo ao vivo do que foi pro ar, mais o painel de fluxo e adoção.
-- Bets encerradas: `shipped` vem do `t0 bet ship` no último merge; bet que o time decide matar vai por `t0 log kill "<motivo>" --bet <BET>`.
-- Rodízio: o time combina quem assume Harness Keeper e Flow Steward nas próximas 2 semanas. O `t0 ritual demo close` grava a troca.
+- Demo ao vivo do que foi para o ar, mais o painel de fluxo e de adoção.
+- Bets encerradas: o estado `shipped` vem do `t0 bet ship` no último merge. Quando o time decide matar uma bet, usa `t0 log kill "<motivo>" --bet <BET>`. O kill fica numa branch do KB até o Bet Owner aprovar.
+- Rodízio: o time combina quem assume Harness Keeper e Flow Steward nas próximas 2 semanas, e o `t0 ritual demo close` grava a troca.
 
 ## Retro
 
-Uma vez por mês, 60 minutos, o time. Facilita o Flow Steward.
+Uma vez por mês, 60 minutos, com o time. O Flow Steward facilita.
 
-A pauta é como o time e a própria metodologia estão funcionando: o que atrapalha, que passo de processo cortar, o que mudar nas dailies e nos papéis. A régua é a de sempre: um passo só fica se protege algo concreto ou gera aprendizado. O Harness Keeper mostra o teto de hooks de `harness/budget.md`.
+A pauta é como o time e a própria metodologia estão funcionando: o que atrapalha, que passo de processo cortar, o que mudar nas dailies e nos papéis. O critério é o de sempre: um passo só fica se protege algo concreto ou gera aprendizado. O Harness Keeper mostra o teto de hooks de `harness/budget.md`.
 
-Retro que muda a metodologia abre ADR por `t0 new adr`, com a mudança e quem decidiu. Retro sem mudança fecha sem ADR.
+Quando a Retro muda a metodologia, ela abre um ADR (registro de decisão) por `t0 new adr`, com a mudança e quem decidiu. Quando não muda nada, a Retro fecha sem ADR.
 
 ## PI Planning e Sense & Respond do ART
 
-Quando o ART marcar, com a duração do ART. Vai o Lead/AIVA. A pauta do time são as bets candidatas e os outcomes de adoção por produto. O registro sai com as decisões do ART, cada uma com dono do lado do time. Gravação só entra se o ART permitir, e passa pelo mesmo fluxo de transcrição.
+Acontece quando o ART marcar e dura o que o ART definir. Do time, vai o Lead/AIVA. A pauta do time são as bets candidatas e os outcomes de adoção por produto. O registro traz as decisões do ART, cada uma com um dono do lado do time. A gravação só entra se o ART permitir e, nesse caso, passa pelo mesmo fluxo de transcrição.
 
 ## Interface com o ART
 
-SAFe por fora, builder pods por dentro. O AI-Native SAFe pede outcomes no PI em vez de features comprometidas, e os degraus de adoção já são outcomes, então a interface fica fina.
+Por fora, o time segue o SAFe do ART. Por dentro, trabalha em builder pods. O AI-Native SAFe pede outcomes no PI em vez de features comprometidas. Os degraus de adoção (os passos de adoção de um produto: o time, depois squads piloto, depois o ART) já são outcomes, por isso a interface entre os dois lados fica fina.
 
 | SAFe (AI-Native) | No t0 |
 |---|---|
-| AI-Native Team (3 a 7 pessoas) | 3 pods + Lead; o segundo revisor de Tier 2 pode vir de outro pod |
+| AI-Native Team (3 a 7 pessoas) | 3 pods + Lead; o segundo revisor de Tier 2 (Tier é o nível de review do PR, de 0 a 2) pode vir de outro pod |
 | Epic / tema | Idea promovida e outcome de PI |
 | Feature / Story | Bet / Slice, espelhadas pelo `t0 jira sync` no CI |
 | Iteração (2 semanas) | fluxo contínuo por dentro; Demo no fim de cada iteração do ART |
@@ -114,11 +116,11 @@ SAFe por fora, builder pods por dentro. O AI-Native SAFe pede outcomes no PI em 
 | AI Value Architect | o Lead acumula |
 | Capacidade / pontos | throughput de slices e cycle time; 1 ponto fixo por slice se exigirem |
 
-Se o ART rodar SAFe clássico, a Demo alimenta a System Demo, as Retros e o Harness Health alimentam o I&A, e o PI Planning recebe bets candidatas além dos outcomes. A interface volta à mesa se houver mais de 3 pods no mesmo produto, se a BU exigir pontos por PI, se o ART pedir a cadência dele por dentro ou se a agenda do Lead estourar.
+Se o ART rodar SAFe clássico, a Demo alimenta a System Demo, as Retros e o Harness Health alimentam o I&A, e o PI Planning recebe bets candidatas além dos outcomes. A interface volta à mesa em quatro casos: mais de 3 pods no mesmo produto, a BU exigir pontos por PI, o ART pedir a cadência dele por dentro ou a agenda do Lead estourar.
 
 ## Conta de tempo
 
-A cerimônia pura, a cada 2 semanas, por pessoa:
+Tempo de cerimônia pura por pessoa, a cada 2 semanas:
 
 | Ritual | Conta | Tempo |
 |---|---|---|
@@ -128,19 +130,19 @@ A cerimônia pura, a cada 2 semanas, por pessoa:
 | Retro | metade de 60 min mensais | 30 min |
 | Total | | cerca de 3h20 |
 
-O Lead soma o PI Planning e o Sense & Respond, no ritmo do ART. A daily do pod fica fora da conta porque é trabalho: o pod prototipa, especifica e planeja ali.
+O Lead soma o PI Planning e o Sense & Respond, no ritmo do ART. A daily do pod fica fora da conta porque é trabalho: nela o pod prototipa, especifica e planeja.
 
 ## Transcrições
 
-As dailies podem ser gravadas, com aviso a todos, para o agente extrair ideias e decisões. As regras estão na Policy `transcript-retention` do KB:
+As dailies podem ser gravadas, com aviso a todos, para o agente extrair ideias e decisões. A Policy `transcript-retention` do KB define as regras:
 
-- A gravação crua mora só em `~/.t0/inbox/`, na máquina de quem gravou. O hook bloqueia qualquer agente de ler ali.
-- A redação é determinística e vem antes de qualquer modelo. O `ritual <slug> close --transcript <arquivo>` chama `t0 transcript redact`, que roda o scanner de segredo e as regex de CPF, conta, e-mail e telefone. Depois o agente faz uma passada atrás de dado de cliente que a regex não pega. Achou, o arquivo para e a correção vai no redator, por um Harness Item.
+- A gravação crua fica só em `~/.t0/inbox/`, na máquina de quem gravou. O hook impede que qualquer agente leia essa pasta.
+- A redação (a remoção de dados sensíveis) é determinística e acontece antes de qualquer modelo. O `ritual <slug> close --transcript <arquivo>` chama `t0 transcript redact`, que roda o scanner de segredo e as regex de CPF, conta, e-mail e telefone. Depois, o agente faz uma passada para achar dado de cliente que a regex não pega. Se ele achar, o arquivo para ali, e a correção vai para o redator por um Harness Item.
 - Qualquer pessoa pode pedir "fora do registro" para um trecho. O trecho sai inteiro, e o Transcript guarda só a contagem em `off_record_spans`. Ninguém tenta reconstruir ou resumir o que foi dito ali.
 - Conversa 1:1 nunca é gravada nem processada.
-- Até o aval de LGPD, tudo roda em dry-run: o `t0` redige e mostra, sem persistir nada no KB. Quando o jurídico der o aval, um PR na Policy preenche `lgpd_signoff` e troca `persist` para `on`.
-- Tudo que o agente extrai da transcrição entra sem `verified` até alguém confirmar.
-- Retenção: Transcript com `stale_after` de 180 dias (PROPOSTA, pendente de validação com jurídico e LGPD). Vencido o prazo, a transcrição é apagada e o Ritual Record fica.
+- Até sair o aval de LGPD, tudo roda em dry-run: o `t0` redige e mostra o resultado, mas não persiste nada no KB. Quando o jurídico der o aval, um PR na Policy preenche `lgpd_signoff` e troca `persist` para `on`.
+- Tudo o que o agente extrai da transcrição entra sem `verified` até alguém confirmar. O close não para para perguntar: ele lista cada item como não verificado e indica quem confirma.
+- Retenção: o Transcript tem `stale_after` de 180 dias (PROPOSTA, pendente de validação com jurídico e LGPD). Quando o prazo vence, a transcrição é apagada e o Ritual Record continua no KB.
 
 Trecho real de uma transcrição redigida do exemplo:
 

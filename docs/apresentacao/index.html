@@ -307,6 +307,28 @@ table.t td.m { color: var(--muted); }
 .rung:nth-child(4) { margin-left: 90px; }
 
 /* ===========================================
+   COMPARISON TABLES, WORK UNITS, GLOSSARY
+   =========================================== */
+table.t.cmp td, table.t.rit td { padding: 13px 18px 13px 0; font-size: 23px; }
+table.t.cmp td:first-child, table.t.rit td:first-child { font-size: 24px; }
+table.t.rit th { white-space: nowrap; }
+.roles.tight .role { padding: 16px 0; grid-template-columns: 400px 280px 1fr; }
+.roles.tight .role p { font-size: 23px; line-height: 1.38; }
+.roles.tight .role h3 { font-size: 31px; }
+table.t.cmp td:nth-child(2) { color: var(--red); font-weight: 650; }
+.unit { display: flex; flex-direction: column; padding: 32px 32px; }
+.unit h3 { font-size: 36px; }
+.unit p { font-size: 22px; line-height: 1.4; flex: 1; }
+.unit .jira { margin-top: 18px; font-size: 19px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.gains .card { padding: 28px 34px; }
+.gains .card h3 { font-size: 31px; }
+.gains .card p { font-size: 23px; }
+.gloss { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 48px; }
+.gloss div { border-left: 4px solid var(--red); padding-left: 20px; }
+.gloss dt { font-size: 25px; font-weight: 700; margin-bottom: 4px; }
+.gloss dd { font-size: 21px; line-height: 1.35; color: var(--muted); }
+
+/* ===========================================
    DECK CHROME (outside the stage)
    =========================================== */
 .progress { position: fixed; left: 0; top: 0; height: 4px; width: 0; z-index: 1001; background: linear-gradient(90deg, #CC092F, #E1173F); transition: width .35s var(--ease); }
@@ -329,315 +351,201 @@ table.t td.m { color: var(--muted); }
 <section class="slide title-slide active visible" aria-label="Capa">
   <div class="bands" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
   <div class="kicker reveal d1">Time de Inovação em IA</div>
-  <h1 class="reveal d2">Da ideia à produção <span class="grad">com agentes</span></h1>
-  <p class="lead reveal d3">Como o time trabalha com a metodologia t0, o KB em OKF e o plugin <code>/t0</code>, num fluxo só.</p>
+  <h1 class="reveal d2">Como o time trabalha <span class="grad">AI Native</span></h1>
+  <p class="lead reveal d3">Como o time se organiza, quais são os ritos, o que é o KB e o que fazem as skills. Escrito para quem vem do Scrum e do SAFe.</p>
   <div class="meta-row reveal d4">
     <div>Pods<b>Dev Tooling, PACO, Portal e Métricas</b></div>
     <div>Ferramentas<b>Claude Code, Copilot, Kiro</b></div>
   </div>
 </section>
 
-<!-- === 2. THE RULE === -->
-<section class="slide" aria-label="A regra">
-  <div class="kicker reveal d1">Ponto de partida</div>
-  <p class="lead reveal d2" style="margin-bottom:48px">O agente deixa barato testar uma ideia. Se o processo continuar caro, ele vira o gargalo.</p>
-  <div class="statement reveal d3">Um passo só existe se <em>protege</em> algo ou <em>ensina</em>.</div>
-  <p class="lead reveal d4" style="margin-top:56px">Proteger quer dizer risco técnico, exigência do banco ou adoção pelas squads. Passo que não protege nem ensina sai.</p>
+<!-- === 2. WHY === -->
+<section class="slide" aria-label="Por que mudar">
+  <div class="kicker reveal d1">Por que mudar</div>
+  <div class="statement reveal d2">Construir ficou barato. <em>Decidir e revisar</em>, não.</div>
+  <div class="grid g2 mt" style="gap:56px">
+    <div class="card soft reveal d3"><span class="tag">Scrum e SAFe partem de</span><p style="color:var(--text)">Construir é caro e lento. Por isso o time refina o backlog, estima em pontos, planeja a sprint e segura esse plano por 2 semanas.</p></div>
+    <div class="card reveal d4" style="border-top:8px solid var(--red)"><span class="tag">Com agentes</span><p style="color:var(--text)">Um protótipo sai em minutos ou horas, e cada pessoa conduz de 2 a 5 sessões de agente ao mesmo tempo. O que falta agora é tempo de gente para decidir o que vale a pena, revisar o que o agente fez e manter o contexto em dia.</p></div>
+  </div>
+  <p class="callout reveal d5">A regra do t0: um passo de processo só fica se protege algo concreto (risco técnico, exigência do banco, adoção pelas squads) ou se o time aprende com ele. Se não faz nenhum dos dois, sai.</p>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>02</span></div>
 </section>
 
-<!-- === 3. PRINCIPLES === -->
-<section class="slide" aria-label="Princípios">
-  <div class="kicker reveal d1">Princípios</div>
-  <h2 class="reveal d2">Quatro apoios para o resto</h2>
-  <div class="grid g2 mt">
-    <div class="card reveal d2"><span class="tag">Papéis</span><h3>Humanos decidem e verificam. Agentes executam.</h3><p>O dev é dono da intenção, do critério de aceite e da verificação. A digitação e o Jira ficam com o agente.</p></div>
-    <div class="card reveal d3"><span class="tag">Registro</span><h3>O KB é o sistema de registro, e quem grava é o comando.</h3><p>Jira, painel e PR são projeções. Ninguém escreve ata à mão.</p></div>
-    <div class="card reveal d4"><span class="tag">Ordem</span><h3>Protótipo antes de documento.</h3><p>Spec só existe para ideia que sobreviveu a um protótipo.</p></div>
-    <div class="card reveal d5"><span class="tag">Gargalo</span><h3>Atenção humana é o recurso escasso, e ela é medida.</h3><p>1 slice = 1 PR revisável em até 15 min. Primeira resposta de review em até 4h úteis.</p></div>
-  </div>
+<!-- === 3. FROM / TO === -->
+<section class="slide" aria-label="De Scrum e SAFe para t0">
+  <div class="kicker reveal d1">De / para</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:30px">O que você conhece, e o que vira aqui</h2>
+  <table class="t cmp reveal d3">
+    <thead><tr><th>No Scrum / SAFe</th><th>No t0</th><th>O que muda na prática</th></tr></thead>
+    <tbody>
+      <tr><td>Sprint de 2 semanas</td><td>fluxo contínuo</td><td class="m">o trabalho anda quando fica pronto; só a Demo segue a iteração do ART</td></tr>
+      <tr><td>Planning e refinamento</td><td>daily do pod, em mob</td><td class="m">o pod prototipa, aposta e escreve o spec com o agente ao vivo</td></tr>
+      <tr><td>Story points, velocity</td><td>apetite e throughput</td><td class="m">o time define quanto tempo aceita gastar (até 2 semanas) em vez de estimar</td></tr>
+      <tr><td>Product Owner</td><td>Bet Owner</td><td class="m">1 sênior por pod que decide o que vira bet e aprova o spec</td></tr>
+      <tr><td>Scrum Master</td><td>Flow Steward, em rodízio</td><td class="m">cuida da fila de review e facilita os rituais, 2 semanas por pessoa</td></tr>
+      <tr><td>Time de desenvolvimento</td><td>Builders</td><td class="m">todo mundo prototipa, orquestra agentes e revisa PR</td></tr>
+      <tr><td>Épico / Feature / Story</td><td>Idea / Bet / Slice</td><td class="m">Bet e Slice viram Feature e Story no Jira por espelho automático</td></tr>
+      <tr><td>Backlog no Jira</td><td>KB do time (<code>t0-kb</code>)</td><td class="m">o trabalho é registrado no KB, e o CI copia para o Jira</td></tr>
+      <tr><td>DoR / DoD, aceite do PO</td><td>gates no CI e PR aprovado</td><td class="m">quem decide aprova um PR, e o git guarda quem aprovou e quando</td></tr>
+      <tr><td>Retrospectiva</td><td>Retro mensal + Harness Health semanal</td><td class="m">toda semana, erro de agente que se repete vira um check automático</td></tr>
+    </tbody>
+  </table>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>03</span></div>
 </section>
 
-<!-- === 4. PODS === -->
-<section class="slide" aria-label="Pods">
-  <div class="kicker reveal d1">Organização</div>
-  <h2 class="reveal d2">Três pods, um time</h2>
+<!-- === 4. STRUCTURE === -->
+<section class="slide" aria-label="Estrutura do time">
+  <div class="kicker reveal d1">Estrutura</div>
+  <h2 class="reveal d2">Um time, três pods, cada pod um produto</h2>
   <div class="grid g3 mt">
-    <div class="card reveal d2"><span class="tag">dev-tooling</span><h3 style="font-size:44px">Dev Tooling</h3><p>Agents, skills e CLIs do SDLC para as equipes de produto.</p></div>
-    <div class="card reveal d3"><span class="tag">paco</span><h3 style="font-size:44px">PACO</h3><p>Produto do time para AIDLC e orquestração de agentes. Também cuida da infra de eval.</p></div>
-    <div class="card reveal d4"><span class="tag">portal-metricas</span><h3 style="font-size:44px">Portal do time e Métricas</h3><p>Portal do time e métricas de uso e eficiência da IA na BU, incluindo o painel único.</p></div>
+    <div class="card reveal d2"><span class="tag">dev-tooling</span><h3 style="font-size:42px">Dev Tooling</h3><p>Agents, skills e CLIs do SDLC para as equipes de produto.</p></div>
+    <div class="card reveal d3"><span class="tag">paco</span><h3 style="font-size:42px">PACO</h3><p>Produto do time para AIDLC e orquestração de agentes. Também cuida da infra de eval.</p></div>
+    <div class="card reveal d4"><span class="tag">portal-metricas</span><h3 style="font-size:42px">Portal e Métricas</h3><p>Portal do time e métricas de uso e eficiência da IA na BU, com o painel único.</p></div>
   </div>
-  <p class="callout reveal d5">Cada pod é um produto no KB, em <code>products/&lt;pod&gt;/</code>, com spec vivo, evals, workspace e as próprias bets.</p>
+  <div class="grid g2 mt-s" style="gap:32px">
+    <div class="card soft reveal d4"><span class="tag">Pod</span><p style="color:var(--text)">Grupo pequeno, dono de um produto do começo ao fim. Tem um Bet Owner, os Builders e, quando o trabalho mexe numa squad, um Domain Expert convidado dela. No SAFe, é o "AI-Native Team".</p></div>
+    <div class="card soft reveal d5"><span class="tag">Customer zero</span><p style="color:var(--text)">O time usa as próprias ferramentas primeiro. Depois vêm 2 ou 3 squads piloto e, por fim, o ART. Cada etapa é um degrau, e a subida é decidida com números de uso, retenção e eval.</p></div>
+  </div>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>04</span></div>
 </section>
 
 <!-- === 5. ROLES === -->
 <section class="slide" aria-label="Papéis">
   <div class="kicker reveal d1">Papéis</div>
-  <h2 class="reveal d2" style="margin-bottom:44px">Cinco papéis, dois deles em rodízio</h2>
-  <div class="roles">
-    <div class="role reveal d2"><h3>Lead / AI Value Architect</h3><span class="who">Chapter Lead</span><p>Escolhe bets com PM e RTE, cuida da arquitetura transversal e da interface com o ART, decide os degraus de adoção com números.</p></div>
-    <div class="role reveal d3"><h3>Bet Owner</h3><span class="who">1 sênior por pod</span><p>Facilita a daily do pod, decide o que vira bet, aprova o spec e responde pelo resultado.</p></div>
-    <div class="role reveal d3"><h3>Builder</h3><span class="who">todo mundo</span><p>Prototipa, pega slices, orquestra de 2 a 5 sessões de agente em paralelo e revisa PRs.</p></div>
-    <div class="role reveal d4"><h3>Harness Keeper</h3><span class="who">rodízio de 2 semanas</span><p>AGENTS.md, skills, linters, CI e agentes de limpeza. Triagem do "o agente errou". Facilita o Harness Health.</p></div>
-    <div class="role reveal d5"><h3>Flow Steward</h3><span class="who">rodízio de 2 semanas</span><p>Facilita a daily do time e a Retro, cuida da fila de review, mantém Jira e KB coerentes, prepara a Demo.</p></div>
+  <h2 class="reveal d2" style="margin-bottom:28px">Cinco papéis, dois em rodízio</h2>
+  <div class="roles tight">
+    <div class="role reveal d2"><h3>Lead / AI Value Architect</h3><span class="who">Chapter Lead</span><p>Escolhe bets com PM e RTE, cuida da arquitetura que cruza pods, é a interface com o ART e decide os degraus de adoção. <span class="red">No SAFe:</span> o AI Value Architect.</p></div>
+    <div class="role reveal d3"><h3>Bet Owner</h3><span class="who">1 sênior por pod</span><p>Facilita a daily do pod, decide o que vira bet, aprova o spec e responde pelo resultado. <span class="red">Parecido com:</span> o PO, mas é técnico e também constrói.</p></div>
+    <div class="role reveal d3"><h3>Builder</h3><span class="who">todo mundo</span><p>Prototipa, pega slices, orquestra de 2 a 5 sessões de agente e revisa PR. <span class="red">Parecido com:</span> o dev, mas quem digita o código é o agente.</p></div>
+    <div class="role reveal d4"><h3>Harness Keeper</h3><span class="who">rodízio de 2 semanas</span><p>Cuida do que cerca o agente: <code>AGENTS.md</code>, skills, linters, CI. Recebe os casos de "o agente errou". <span class="red">Sem par</span> no Scrum.</p></div>
+    <div class="role reveal d5"><h3>Flow Steward</h3><span class="who">rodízio de 2 semanas</span><p>Facilita a daily do time, a Demo e a Retro, cuida da fila de review e da coerência entre Jira e KB. <span class="red">Parecido com:</span> o Scrum Master, em rodízio.</p></div>
   </div>
+  <p class="reveal d5 muted" style="margin-top:18px;font-size:22px">Júnior não tem papel próprio. Faz review em par, explica o PR com as próprias palavras e faz um slice por quinzena sem gerar código com o agente.</p>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>05</span></div>
 </section>
 
-<!-- === 6. ROTATIONS AND JUNIORS === -->
-<section class="slide" aria-label="Rodízio">
-  <div class="kicker reveal d1">Rodízio</div>
-  <h2 class="reveal d2">Todo mundo passa pelos dois papéis rotativos</h2>
-  <div class="grid g2 mt" style="gap:64px">
-    <div class="reveal d3">
-      <ul class="list">
-        <li>A troca acontece no <code>ritual demo close</code>, que grava a Rotation nova no KB.</li>
-        <li>Na primeira vez, júnior roda em par com um sênior.</li>
-        <li>Ninguém segura Harness Keeper e Flow Steward ao mesmo tempo.</li>
-      </ul>
-    </div>
-    <div class="card soft reveal d4">
-      <span class="tag">Três práticas para juniores</span>
-      <ul class="list sm" style="margin-top:8px">
-        <li>Review em par nos primeiros PRs.</li>
-        <li>Seção "Em minhas palavras" em PR de júnior e em todo PR Tier 2, sem colar a explicação do agente.</li>
-        <li>Um slice por quinzena feito sem gerar código com o agente, por escolha da pessoa.</li>
-      </ul>
-    </div>
+<!-- === 6. WORK VOCABULARY === -->
+<section class="slide" aria-label="Unidades de trabalho">
+  <div class="kicker reveal d1">Nomenclatura</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:28px">As unidades de trabalho</h2>
+  <div class="grid g4" style="gap:28px">
+    <div class="card unit reveal d2"><span class="tag">Idea</span><h3>Ideia</h3><p>Um problema, quem sofre com ele e um sinal de que é real. Qualquer pessoa registra. O protótipo termina num veredito: <code>segue</code>, <code>ajusta</code> ou <code>mata</code>.</p><div class="jira">sem par no Jira</div></div>
+    <div class="card unit reveal d3"><span class="tag">Bet</span><h3>Aposta</h3><p>Trabalho de até 2 semanas com hipótese, métrica de sucesso e critério para parar. Parar uma bet que não deu certo também conta como resultado.</p><div class="jira">Jira: Feature</div></div>
+    <div class="card unit reveal d4"><span class="tag">Spec</span><h3>Contrato</h3><p>Histórias, critérios de aceite, como verificar e nível de risco. Só é escrito para ideia que passou pelo protótipo.</p><div class="jira">mora só no KB</div></div>
+    <div class="card unit reveal d5"><span class="tag">Slice</span><h3>Fatia vertical</h3><p>Um pedaço da bet que vai de ponta a ponta (tela, regra, dado) e dá para demonstrar sozinho. Um repo, um PR, revisável em até 15 minutos.</p><div class="jira">Jira: Story</div></div>
   </div>
-  <p class="callout reveal d5">O Harness Keeper é onde o ganho composto aparece: cada erro de agente que vira sensor deixa de custar review para o time inteiro.</p>
+  <div class="grid g3 mt-s" style="gap:28px">
+    <div class="card soft reveal d4"><span class="tag">Trilha rápida</span><p style="color:var(--text)">Para ajuste de até 1 dia. Não tem spec: o slice já diz o que acontece hoje, o que deve acontecer e qual teste prova a mudança.</p></div>
+    <div class="card soft reveal d5"><span class="tag">Tier 0, 1, 2</span><p style="color:var(--text)">O nível de risco do PR, que define quanto review ele precisa. Tier 2 (superfície pública, auth, dado de cliente) pede dois revisores, um deles o Bet Owner.</p></div>
+    <div class="card soft reveal d5"><span class="tag">Apetite</span><p style="color:var(--text)">O limite de tempo que o time aceita gastar: 1 dia, 1 semana ou 2 semanas. Se não cabe em 2 semanas, a bet é dividida em duas.</p></div>
+  </div>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>06</span></div>
 </section>
 
-<!-- === 7. FLOW === -->
-<section class="slide" aria-label="Fluxo">
+<!-- === 7. FLOW AND DECISIONS === -->
+<section class="slide" aria-label="Fluxo e decisões">
   <div class="kicker reveal d1">Fluxo</div>
-  <h2 class="reveal d2">Da ideia ao ART em sete etapas</h2>
-  <div class="flow reveal d3" role="img" aria-label="Ideia, protótipo, decisão de aposta, spec e slices, decisão de spec, build e verify, ship, degraus de adoção com decisão de degrau">
+  <h2 class="reveal d2" style="font-size:64px">Da ideia ao ART, com três decisões humanas</h2>
+  <div class="flow reveal d3" style="margin-top:56px" role="img" aria-label="Ideia, protótipo, decisão de aposta, spec e slices, decisão de spec, build e verify, ship, degraus de adoção com decisão de degrau">
     <div class="node"><span class="n">1</span><h4>Ideia</h4><p>qualquer pessoa, a qualquer hora</p></div>
     <div class="arrow"></div>
     <div class="node"><span class="n">2</span><h4>Protótipo</h4><p>minutos a horas, fora do main</p></div>
     <div class="gate"><div class="dia"></div><span>aposta</span></div>
-    <div class="node"><span class="n">3 e 4</span><h4>Spec + slices</h4><p>em mob, na daily do pod</p></div>
+    <div class="node"><span class="n">3</span><h4>Spec + slices</h4><p>em mob, na daily do pod</p></div>
     <div class="gate"><div class="dia"></div><span>spec</span></div>
-    <div class="node"><span class="n">5</span><h4>Build e Verify</h4><p>1 slice = 1 PR em draft</p></div>
+    <div class="node"><span class="n">4</span><h4>Build e verify</h4><p>1 slice = 1 PR em draft</p></div>
     <div class="arrow"></div>
-    <div class="node"><span class="n">6</span><h4>Ship</h4><p>merge congela o spec da bet</p></div>
+    <div class="node"><span class="n">5</span><h4>Ship</h4><p>merge congela o spec</p></div>
     <div class="arrow"></div>
-    <div class="node"><span class="n">7</span><h4>Degraus</h4><p>time, 2 ou 3 squads piloto, ART</p></div>
+    <div class="node"><span class="n">6</span><h4>Degraus</h4><p>time, squads piloto, ART</p></div>
     <div class="gate"><div class="dia"></div><span>degrau</span></div>
   </div>
-  <div class="lane reveal d4">
-    <b>Em qualquer etapa</b>
-    <div class="ladder-inline"><span>Agente erra pela 2ª vez</span><span class="red">→</span><span class="pill">Harness Item</span><span class="red">→</span><span class="pill">sensor, regra, skill ou AGENTS.md</span><span class="red">→</span><span class="pill">PR no Harness Health</span></div>
+  <div class="grid g3 mt" style="gap:28px">
+    <div class="card soft reveal d4"><span class="tag">01 · Aposta</span><p style="color:var(--text)">Bet Owner aprova o PR da aposta. O Lead entra se cruza pods, é Tier 2 ou passa de 1 semana.</p></div>
+    <div class="card soft reveal d4"><span class="tag">02 · Spec</span><p style="color:var(--text)">Bet Owner aprova o PR do spec com os slices. Em Tier 2, também o Lead.</p></div>
+    <div class="card soft reveal d5"><span class="tag">03 · Degrau</span><p style="color:var(--text)">O Lead/AIVA decide se o produto chega a mais squads, olhando uso, retenção e eval.</p></div>
   </div>
+  <p class="reveal d5 muted" style="margin-top:26px;font-size:24px">O resto é review normal de PR ou automação. Cada pessoa tem no máximo 2 slices em construção, e revisar um PR parado vem antes de começar slice novo.</p>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>07</span></div>
 </section>
 
-<!-- === 8. TRACKS === -->
-<section class="slide" aria-label="Duas trilhas">
-  <div class="kicker reveal d1">Trilhas</div>
-  <h2 class="reveal d2">Duas trilhas, pelo tamanho do trabalho</h2>
-  <div class="grid g2 mt">
-    <div class="track hot reveal d3">
-      <div class="big">Rápida</div>
-      <div class="sub">ajuste, bugfix ou melhoria que cabe em até 1 dia</div>
-      <ul class="list sm">
-        <li>Sem spec. O slice já nasce com "atual, esperado, o que não muda" e um teste.</li>
-        <li>O Flow Steward ou o Bet Owner aprova a aposta na daily.</li>
-        <li>Um slice, um PR.</li>
-      </ul>
-    </div>
-    <div class="track reveal d4">
-      <div class="big">Bet</div>
-      <div class="sub">o resto, com apetite de até 2 semanas</div>
-      <ul class="list sm">
-        <li>Protótipo, spec, desenho quando precisa, slices.</li>
-        <li>O Bet Owner aprova aposta e spec.</li>
-        <li>O Lead entra quando a bet cruza pods, é Tier 2 ou passa de 1 semana.</li>
-      </ul>
-    </div>
-  </div>
-  <p class="callout reveal d5">Item rápido que precisa de desenho vira bet. Bet que não cabe em 2 semanas vira duas. Superfície pública (MCP, CLI, skill, API) é Tier 2 em qualquer trilha.</p>
+<!-- === 8. RITUALS === -->
+<section class="slide" aria-label="Rituais">
+  <div class="kicker reveal d1">Ritos</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:30px">Seis rituais, cada um com saída no KB</h2>
+  <table class="t rit reveal d3">
+    <thead><tr><th>Ritual</th><th>Quando</th><th>Facilita</th><th>Para quê</th><th>Ocupa o lugar de</th></tr></thead>
+    <tbody>
+      <tr><td>Daily do time</td><td>todo dia, 10 min</td><td class="m">Flow Steward</td><td class="m">só bloqueios e pedidos de review; o status vem do bot</td><td class="m">daily do Scrum</td></tr>
+      <tr><td>Daily do pod</td><td>todo dia, 30 a 45 min</td><td class="m">Bet Owner</td><td class="m">prototipar, decidir bets, escrever spec e cortar slices em mob</td><td class="m">planning e refinamento</td></tr>
+      <tr><td>Harness Health</td><td>toda semana, 20 min</td><td class="m">Harness Keeper</td><td class="m">erro de agente que se repete ganha um PR de correção; incidente vira caso de teste do agente</td><td class="m">novo</td></tr>
+      <tr><td>Demo</td><td>a cada 2 semanas, 30 min</td><td class="m">Flow Steward</td><td class="m">o que foi pro ar, bets <code>shipped</code> ou <code>killed</code>, troca do rodízio</td><td class="m">sprint review</td></tr>
+      <tr><td>Retro</td><td>todo mês, 60 min</td><td class="m">Flow Steward</td><td class="m">cortar o passo de processo que não valeu o tempo; mudança na metodologia vira ADR</td><td class="m">retrospectiva</td></tr>
+      <tr><td>PI / Sense &amp; Respond</td><td>quando o ART marcar</td><td class="m">Lead/AIVA</td><td class="m">bets candidatas e outcomes de adoção por produto</td><td class="m">igual ao SAFe</td></tr>
+    </tbody>
+  </table>
+  <p class="reveal d4 muted" style="margin-top:24px;font-size:23px">Todo ritual abre e fecha por comando (<code>t0 ritual &lt;slug&gt; open|close</code>). O <code>open</code> monta a pauta com o que está no KB, e o <code>close</code> grava as decisões e os donos. Ninguém escreve ata.</p>
   <div class="chrome"><span><b>t0</b> metodologia</span><span>08</span></div>
 </section>
 
-<!-- === 9. THREE DECISIONS === -->
-<section class="slide" aria-label="Três decisões humanas">
-  <div class="kicker reveal d1">Decisões</div>
-  <h2 class="reveal d2" style="margin-bottom:0">Só três decisões são humanas</h2>
-  <div class="grid g3 mt-s">
-    <div class="card decision reveal d2"><span class="num">01</span><h3>Aposta</h3><dl><dt>Quem</dt><dd>Bet Owner na daily do pod. Na rápida, Flow Steward ou Bet Owner.</dd><dt>Registro</dt><dd>Bet <code>active</code> com <code>appetite</code> e <code>verified</code></dd><dt>Como</dt><dd>PR aberto pelo <code>bet-new</code></dd></dl></div>
-    <div class="card decision reveal d3"><span class="num">02</span><h3>Spec</h3><dl><dt>Quem</dt><dd>Bet Owner. Em Tier 2, também o Lead.</dd><dt>Registro</dt><dd>Spec <code>approved</code>, <code>markers_open: 0</code></dd><dt>Como</dt><dd>PR do spec com os slices</dd></dl></div>
-    <div class="card decision reveal d4"><span class="num">03</span><h3>Degrau</h3><dl><dt>Quem</dt><dd>Lead/AIVA, quando os números saem.</dd><dt>Registro</dt><dd>Adoption Report <code>passed</code></dd><dt>Como</dt><dd><code>gate degrau &lt;produto&gt;</code></dd></dl></div>
-  </div>
-  <p class="callout reveal d5" style="margin-top:30px">Aprovar o PR é decidir. O histórico git do KB vira a trilha de auditoria que o banco pede. Build, review e merge ficam com o CI e com o review normal de PR.</p>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>09</span></div>
-</section>
-
-<!-- === 10. NO SPRINT === -->
-<section class="slide" aria-label="Fluxo contínuo">
-  <div class="kicker reveal d1">Ritmo</div>
-  <h2 class="reveal d2">Fluxo contínuo, sem sprint por dentro</h2>
-  <p class="lead reveal d3">Ideia é decidida na daily do pod seguinte ao protótipo. Quem limita o WIP é o review pendente, e PR esperando review passa na frente de slice novo.</p>
-  <div class="grid g4 mt">
-    <div class="stat reveal d2"><div class="v">2</div><div class="l">slices em construção por pessoa, no máximo</div></div>
-    <div class="stat reveal d3"><div class="v">15<span style="font-size:52px"> min</span></div><div class="l">para revisar um PR de slice</div></div>
-    <div class="stat reveal d4"><div class="v">4h</div><div class="l">úteis até a primeira resposta de review</div></div>
-    <div class="stat reveal d5"><div class="v">24h</div><div class="l">de review parado e o bot já sinaliza</div></div>
-  </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>10</span></div>
-</section>
-
-<!-- === 11. RITUALS === -->
-<section class="slide" aria-label="Rituais">
-  <div class="kicker reveal d1">Rituais</div>
-  <h2 class="reveal d2" style="margin-bottom:40px">Seis rituais, cada um com saída no KB</h2>
-  <table class="t reveal d3">
-    <thead><tr><th>Ritual</th><th>Quando</th><th>Duração</th><th>Facilita</th><th>Saída automática no KB</th></tr></thead>
-    <tbody>
-      <tr><td>Daily do time</td><td>todo dia</td><td>10 min</td><td class="m">Flow Steward</td><td class="m">bloqueios e donos; o bot publica o status antes</td></tr>
-      <tr><td>Daily do pod</td><td>todo dia, logo depois</td><td>30 a 45 min</td><td class="m">Bet Owner</td><td class="m">ideias, decisões, specs em PR</td></tr>
-      <tr><td>Harness Health</td><td>toda semana</td><td>20 min</td><td class="m">Harness Keeper</td><td class="m">Harness Items com PR, casos de eval</td></tr>
-      <tr><td>Demo</td><td>a cada 2 semanas, com o ART</td><td>30 min</td><td class="m">Flow Steward</td><td class="m">bets encerradas, rodízio novo</td></tr>
-      <tr><td>Retro</td><td>uma vez por mês</td><td>60 min</td><td class="m">Flow Steward</td><td class="m">registro; ADR quando a metodologia muda</td></tr>
-      <tr><td>PI / Sense &amp; Respond</td><td>quando o ART marcar</td><td>do ART</td><td class="m">Lead/AIVA</td><td class="m">decisões do ART</td></tr>
-    </tbody>
-  </table>
-  <p class="reveal d4 muted" style="margin-top:28px;font-size:24px">Todo ritual interno abre e fecha com <code>ritual &lt;slug&gt; open|close</code>. O <code>open</code> monta a pauta a partir do KB; o <code>close</code> grava o Ritual Record.</p>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>11</span></div>
-</section>
-
-<!-- === 12. TIME BUDGET === -->
+<!-- === 9. TIME BUDGET === -->
 <section class="slide" aria-label="Conta de tempo">
   <div class="kicker reveal d1">Conta de tempo</div>
-  <h2 class="reveal d2">Cerca de 3h20 de cerimônia por pessoa a cada 2 semanas</h2>
+  <h2 class="reveal d2">Cerca de 3h20 de cerimônia a cada 2 semanas</h2>
   <div class="timebar reveal d3" role="img" aria-label="Daily do time 1h40, Harness Health 40 min, Demo 30 min, meia Retro 30 min">
     <div class="a"><b>1h40</b>daily do time, 10 × 10 min</div>
     <div class="b"><b>40 min</b>2 Harness Health</div>
     <div class="c"><b>30</b>1 Demo</div>
     <div class="d"><b>30</b>½ Retro</div>
   </div>
-  <div class="grid g2 mt" style="gap:64px">
-    <div class="reveal d4"><h3>A daily do pod conta como trabalho</h3><p class="muted">É ali que o pod prototipa, especifica e planeja com o agente ao vivo. Ela ocupa o lugar do shaping solitário e do refinamento.</p></div>
-    <div class="reveal d5"><h3>Status quem dá é o bot</h3><p class="muted">Merges, review parado há mais de 24h e travas saem publicados antes da daily. Ritual nenhum serve para status.</p></div>
+  <div class="grid g3 mt" style="gap:48px">
+    <div class="reveal d4"><h3>No Scrum, ~10h</h3><p class="muted">Pelos timeboxes do Scrum Guide para sprint de 2 semanas: 4h de planning, 2h de review, 1h30 de retro e 2h30 de daily, sem contar o refinamento.</p></div>
+    <div class="reveal d4"><h3>A daily do pod é trabalho</h3><p class="muted">Ela fica fora da conta porque o pod passa esse tempo prototipando e escrevendo spec com o agente. Substitui o planning e o refinamento.</p></div>
+    <div class="reveal d5"><h3>Status quem dá é o bot</h3><p class="muted">Antes da daily, o bot publica os merges, os reviews parados há mais de 24h e os bloqueios. Nenhum ritual serve para dar status.</p></div>
   </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>12</span></div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>09</span></div>
 </section>
 
-<!-- === 13. WHERE THINGS LIVE === -->
-<section class="slide" aria-label="O que mora onde">
-  <div class="kicker reveal d1">KB e contexto</div>
-  <h2 class="reveal d2">Cada coisa mora num lugar só</h2>
-  <div class="grid g4 mt">
-    <div class="card reveal d2" style="border-top:8px solid var(--red)"><span class="tag">KB · t0-kb</span><p style="color:var(--text)">Metodologia, time, ideias, produtos com spec vivo, bets, rituais, transcrições redigidas e harness.</p></div>
-    <div class="card reveal d3"><span class="tag">Repos de produto</span><p>Código, testes, <code>evals/</code>, trilha <code>.audit/</code>, <code>AGENTS.md</code> canônico e a skill <code>verify-&lt;app&gt;</code>.</p></div>
-    <div class="card reveal d4"><span class="tag">Jira</span><p>Feature e Story espelhadas pelo CI, status e comentários do ART.</p></div>
-    <div class="card reveal d5"><span class="tag">Painel</span><p>Métricas geradas de Git, CI, Jira, telemetria e KB. Ninguém reporta à mão.</p></div>
-  </div>
-  <p class="callout reveal d5">Se o agente precisa disso para editar código, mora no repo. Se precisa para decidir o que fazer, mora no KB. Conteúdo do KB entra no repo só por link, pelo <code>uid</code>.</p>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>13</span></div>
-</section>
-
-<!-- === 14. BUNDLE TREE === -->
-<section class="slide" aria-label="Bundle OKF">
-  <div class="kicker reveal d1">O bundle OKF</div>
-  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">O KB do time, pasta por pasta</h2>
-  <div class="grid" style="grid-template-columns: 1.15fr 1fr; gap:48px">
-<div class="tree reveal d3"><span class="k">t0-kb/</span>
-  index.md  profile.md  log.md   <span class="c">gerados</span>
-  .github/CODEOWNERS             <span class="c">donos da raia de conhecimento</span>
-  <span class="k">methodology/</span>  practices/  policies/  adr/
-  <span class="k">templates/</span>    idea bet spec slice adr ...
-  <span class="k">team/</span>         people/  roles/  rotations/
-  <span class="k">ideas/</span>        IDEA-NNNN.md
-  <span class="k">rituals/</span>      &lt;slug&gt;/ritual.md + AAAA-MM-DD.md
-  <span class="k">transcripts/</span>  só redigidas
-  <span class="k">steps/</span>        registros fora de uma bet
-  <span class="k">glossary/</span>     termos do time
-  <span class="k">harness/</span>      HI-NNNN.md  budget.md
-  <span class="k">products/</span>&lt;pod&gt;/
-    product.md  workspace.md  evals.md
-    adr/  adoption/
-    bets/BET-NNN/  bet.md  spec.md  slices/</div>
-    <div class="reveal d4">
-      <h3>Tipos enxutos, frontmatter comum</h3>
-      <p class="muted" style="font-size:24px;margin-bottom:22px">Todo arquivo carrega <code>type</code>, <code>uid</code>, <code>owner</code>, <code>status</code> e, nas decisões, <code>verified</code> com quem aprovou.</p>
-      <div class="chips">
-        <span class="chip on">Idea</span><span class="chip on">Bet</span><span class="chip on">Spec</span><span class="chip on">Slice</span><span class="chip">ADR</span><span class="chip">Ritual Record</span><span class="chip">Transcript</span><span class="chip">Harness Item</span><span class="chip">Product</span><span class="chip">Workspace</span><span class="chip">Eval Suite</span><span class="chip">Adoption Report</span><span class="chip">Policy</span><span class="chip">Template</span><span class="chip">Person</span><span class="chip">Role</span><span class="chip">Rotation</span><span class="chip">Glossary Term</span><span class="chip">Step</span>
-      </div>
-      <p class="muted mt-s" style="font-size:24px">A bet é spec-first e o produto é spec-anchored: no ship, o spec da bet congela e o conteúdo vivo migra para <code>products/&lt;p&gt;/spec.md</code>.</p>
-    </div>
-  </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>14</span></div>
-</section>
-
-<!-- === 15. WRITE LANES === -->
-<section class="slide" aria-label="Três raias de escrita">
-  <div class="kicker reveal d1">Escrita no KB</div>
-  <h2 class="reveal d2">Três raias, zero conflito entre 10 pessoas</h2>
-  <div class="grid g3 mt">
-    <div class="card lane-card reveal d2"><h3>Registros</h3>
-      <div class="row"><small>O quê</small><div><code>t0 log</code>, decisões em voo, eventos de PR</div></div>
-      <div class="row"><small>Como entra</small><div>arquivo novo com nome único em <code>steps/</code>, num PR de lote diário aprovado pelo Flow Steward</div></div>
-    </div>
-    <div class="card lane-card reveal d3"><h3>Conhecimento</h3>
-      <div class="row"><small>O quê</small><div>ideia, spec, slices, ADR, glossário, rituais, transcrições redigidas</div></div>
-      <div class="row"><small>Como entra</small><div>PR revisado com CODEOWNERS, na branch <code>bet/BET-NNN/&lt;handle&gt;</code></div></div>
-    </div>
-    <div class="card lane-card reveal d4"><h3>Derivados</h3>
-      <div class="row"><small>O quê</small><div><code>index.md</code>, <code>log.md</code>, <code>changeset.md</code>, chaves <code>jira:</code> e <code>state</code></div></div>
-      <div class="row"><small>Como entra</small><div>só o workflow <code>kb-render</code>, serializado</div></div>
-    </div>
-  </div>
-  <p class="callout reveal d5">Como ninguém edita o mesmo arquivo de registro, não tem conflito. Só uma credencial cruza repos: o GitHub App KB-writer, instalado só no <code>t0-kb</code>.</p>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>15</span></div>
-</section>
-
-<!-- === 16. WORKSPACE === -->
-<section class="slide" aria-label="Workspace multi-repo">
-  <div class="kicker reveal d1">Workspace multi-repo</div>
-  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">Um workspace por produto, um card em toda sessão</h2>
-  <div class="grid" style="grid-template-columns: 1fr 1.1fr; gap:56px">
-<div class="tree reveal d3"><span class="k">~/ws/&lt;produto&gt;/</span>      <span class="c">a pasta que você abre</span>
-  <span class="k">AGENTS.md</span>          <span class="c">o card de contexto</span>
-  .t0/bet.json       <span class="c">bet ativa</span>
-  .t0/context.md     <span class="c">delta de frescor</span>
-  kb/                <span class="c">clone do t0-kb</span>
-  api/  web/  batch/ <span class="c">clones irmãos</span>
-
-<span class="k">~/ws/&lt;produto&gt;@BET-042/</span>
-  <span class="c">opcional, com worktrees, para</span>
-  <span class="c">duas bets em paralelo</span></div>
-    <div class="reveal d4">
+<!-- === 10. KB === -->
+<section class="slide" aria-label="O KB">
+  <div class="kicker reveal d1">KB</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">O KB é a memória do time, para gente e para agente</h2>
+  <div class="grid" style="grid-template-columns: 1.05fr 1fr; gap:56px">
+    <div class="reveal d3">
       <ul class="list sm">
-        <li>O manifesto mora no KB, em <code>products/&lt;p&gt;/workspace.md</code>, e muda por PR. <code>t0 ws init &lt;p&gt;</code> monta a pasta.</li>
-        <li>O card tem até 8.000 caracteres: bet ativa, critérios de aceite, repos e mapa do KB. Claude Code, Copilot e Kiro leem nativamente.</li>
-        <li>Hooks mandam um delta de até 3.000 quando o card envelhece, e subagente ganha um card de 1.500.</li>
-        <li>O MCP local <code>t0-kb</code> lê o KB por índice e busca, sem serviço hospedado.</li>
-        <li>Cross-repo: 1 slice = 1 repo = 1 PR, e todo PR é deployável sozinho.</li>
+        <li>É um repositório git, o <code>t0-kb</code>, com arquivos Markdown no formato OKF. Guarda ideias, bets, specs, decisões, rituais e o glossário do time.</li>
+        <li>O agente lê o KB em toda sessão, pelo card de contexto e pelo MCP <code>t0-kb</code>. O que fica só no Jira não chega até ele, por isso a spec mora no KB.</li>
+        <li>Quem grava é o comando <code>t0</code>, não a pessoa. Decisão entra por PR, registro entra como arquivo novo e o CI gera os índices.</li>
+        <li>O histórico do git serve de auditoria para o banco: mostra quem aprovou cada aposta e cada spec.</li>
       </ul>
     </div>
+    <div class="reveal d4">
+      <div class="grid g2" style="gap:20px">
+        <div class="card" style="border-top:8px solid var(--red);padding:28px 30px"><span class="tag">KB</span><p style="color:var(--text);font-size:23px">o que decidir: metodologia, time, ideias, specs, rituais</p></div>
+        <div class="card" style="padding:28px 30px"><span class="tag">Repos</span><p style="font-size:23px">o que editar: código, testes, evals, <code>.audit/</code>, <code>verify-&lt;app&gt;</code></p></div>
+        <div class="card" style="padding:28px 30px"><span class="tag">Jira</span><p style="font-size:23px">espelho gerado pelo CI depois do merge</p></div>
+        <div class="card" style="padding:28px 30px"><span class="tag">Painel</span><p style="font-size:23px">métricas de Git, CI, Jira e KB; ninguém reporta à mão</p></div>
+      </div>
+      <p class="muted mt-s" style="font-size:22px">Cada dev tem um workspace por produto, <code>~/ws/&lt;produto&gt;/</code>, com o KB e os repos lado a lado e um <code>AGENTS.md</code> gerado com a bet ativa.</p>
+    </div>
   </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>16</span></div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>10</span></div>
 </section>
 
-<!-- === 17. PLUGIN ENTRY === -->
+<!-- === 11. PLUGIN ENTRY === -->
 <section class="slide" aria-label="O plugin t0">
-  <div class="kicker reveal d1">O plugin t0</div>
+  <div class="kicker reveal d1">Plugin</div>
   <div class="grid" style="grid-template-columns: 560px 1fr; gap:80px; align-items:center; margin-top:20px">
     <div class="reveal d2">
       <div class="stat"><div class="v" style="font-size:220px;font-family:var(--mono);letter-spacing:-0.06em">/t0</div></div>
-      <p class="lead" style="margin-top:20px">Uma porta de entrada só, igual no Claude Code, no Copilot e no Kiro.</p>
+      <p class="lead" style="margin-top:20px">Uma porta de entrada, igual no Claude Code, no Copilot e no Kiro.</p>
     </div>
     <div>
       <div class="steps reveal d3" style="gap:22px">
         <div class="step"><div class="txt">Você descreve o pedido em português, do jeito que vier.</div></div>
         <div class="step"><div class="txt">O <code>/t0</code> escolhe o playbook e abre a lista de tarefas com os passos dele.</div></div>
-        <div class="step"><div class="txt">Cada passo chama uma skill, que grava no KB pelo comando <code>t0</code>.</div></div>
-        <div class="step human"><div class="txt">Na decisão humana, ele abre o PR, mostra a evidência e para.</div></div>
+        <div class="step"><div class="txt">Cada passo chama uma skill. Ela preenche o que dá para tirar do pedido e grava no KB pelo comando <code>t0</code>.</div></div>
+        <div class="step human"><div class="txt">Quando chega numa decisão humana, ele abre o PR em draft, mostra a evidência e espera.</div></div>
       </div>
       <div class="reveal d4 mt-s">
         <p class="muted" style="font-size:21px;margin-bottom:12px;letter-spacing:.08em;text-transform:uppercase">Playbooks do fluxo</p>
@@ -647,169 +555,108 @@ table.t td.m { color: var(--muted); }
       </div>
     </div>
   </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>17</span></div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>11</span></div>
 </section>
 
-<!-- === 18. SKILLS BY STAGE === -->
-<section class="slide" aria-label="Skills por etapa">
+<!-- === 12. SKILLS === -->
+<section class="slide" aria-label="Skills">
   <div class="kicker reveal d1">Skills</div>
-  <h2 class="reveal d2" style="font-size:64px;margin-bottom:40px">15 skills em pt-BR, agrupadas pela etapa</h2>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">15 skills em pt-BR, uma para cada passo</h2>
   <div class="grid g4" style="gap:40px">
-    <div class="stage-col reveal d2"><h3>Ideação e spec</h3>
-      <div class="sk"><code>idea-capture</code><div>registra a ideia com dedup</div></div>
-      <div class="sk"><code>grill</code><div>afia ideia ou spec; glossário e ADR</div></div>
-      <div class="sk"><code>prototype</code><div>protótipo fora do main, grava o veredito</div></div>
-      <div class="sk"><code>bet-new</code><div>abre o PR da aposta, rápida ou bet</div></div>
-      <div class="sk"><code>bet-spec</code><div>spec com aceite em bullets e tier</div></div>
-      <div class="sk"><code>bet-slice</code><div>slices verticais no PR do spec</div></div>
+    <div class="stage-col reveal d2"><h3>Ideia e aposta</h3>
+      <div class="sk"><code>idea-capture</code><div>registra a ideia, checa duplicata, pergunta no máximo uma vez</div></div>
+      <div class="sk"><code>grill</code><div>entrevista para afiar ideia ou spec; glossário e ADR</div></div>
+      <div class="sk"><code>prototype</code><div>protótipo numa branch local, termina em veredito</div></div>
+      <div class="sk"><code>bet-new</code><div>propõe os campos e abre o PR da aposta</div></div>
     </div>
-    <div class="stage-col reveal d3"><h3>Arquitetura e build</h3>
-      <div class="sk"><code>architect</code><div>tipos e módulos antes do código; para no checkpoint</div></div>
-      <div class="sk"><code>arena</code><div>N candidatos em worktrees, um juiz pontua</div></div>
+    <div class="stage-col reveal d3"><h3>Spec e desenho</h3>
+      <div class="sk"><code>bet-spec</code><div>spec com aceite em bullets, seams e tier</div></div>
+      <div class="sk"><code>architect</code><div>propõe dois desenhos e espera o ok humano antes de gravar</div></div>
+      <div class="sk"><code>arena</code><div>roda várias tentativas em paralelo; um juiz escolhe a melhor sem saber o autor</div></div>
+      <div class="sk"><code>bet-slice</code><div>corta slices verticais no PR do spec</div></div>
+    </div>
+    <div class="stage-col reveal d4"><h3>Build e verificação</h3>
+      <div class="sk"><code>slice-build</code><div>TDD, trilha <code>.audit</code>, termina no PR em draft</div></div>
+      <div class="sk"><code>slice-verify</code><div>review contra spec e padrões, prova no app real</div></div>
       <div class="sk"><code>swarm</code><div>workers em paralelo, um relatório só</div></div>
-      <div class="sk"><code>slice-build</code><div>TDD, trilha <code>.audit</code>, PR em draft</div></div>
-    </div>
-    <div class="stage-col reveal d4"><h3>Verificação</h3>
-      <div class="sk"><code>slice-verify</code><div>review contra o spec, prova no app, blast radius em Tier 2</div></div>
-      <div class="sk"><code>verify-setup</code><div>cria a skill <code>verify-&lt;app&gt;</code> do repo</div></div>
+      <div class="sk"><code>verify-setup</code><div>cria o <code>verify-&lt;app&gt;</code> que dirige o app</div></div>
     </div>
     <div class="stage-col reveal d5"><h3>Time e harness</h3>
-      <div class="sk"><code>ritual</code><div>abre e fecha rituais, grava o registro</div></div>
-      <div class="sk"><code>harness-fix</code><div>erro repetido vira sensor, com PR em draft</div></div>
-      <div class="sk"><code>t0</code><div>porta de entrada, roteia e guarda as travas</div></div>
-      <p class="muted" style="font-size:20px;margin-top:26px;line-height:1.4">Subagentes: <code style="font-size:18px">t0-agent</code>, <code style="font-size:18px">spec-reviewer</code>, <code style="font-size:18px">standards-reviewer</code> e <code style="font-size:18px">verifier</code>.</p>
+      <div class="sk"><code>ritual</code><div>abre e fecha rituais, extrai decisões de transcrição</div></div>
+      <div class="sk"><code>harness-fix</code><div>transforma erro repetido em check, provando que ele pega o erro</div></div>
+      <div class="sk"><code>t0</code><div>porta de entrada: roteia e guarda as travas</div></div>
+      <p class="muted" style="font-size:20px;margin-top:22px;line-height:1.4">Subagentes: <code style="font-size:18px">t0-agent</code>, <code style="font-size:18px">spec-reviewer</code>, <code style="font-size:18px">standards-reviewer</code>, <code style="font-size:18px">verifier</code>.</p>
     </div>
   </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>18</span></div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>12</span></div>
 </section>
 
-<!-- === 19. GUARDS === -->
-<section class="slide" aria-label="Travas">
-  <div class="kicker reveal d1">Travas</div>
-  <h2 class="reveal d2">O que o agente nunca faz sozinho</h2>
-  <div class="grid g2" style="margin-top:44px">
-    <div class="card reveal d2"><span class="tag">Só draft</span><p style="color:var(--text)">Todo PR nasce e fica em draft. O hook recusa <code>gh pr create</code> sem <code>--draft</code>, <code>gh pr ready</code>, force push e <code>reset --hard</code>.</p></div>
-    <div class="card reveal d3"><span class="tag">Sem merge</span><p style="color:var(--text)">Merge é do humano ou do CI. O bloqueio vale no shell e nas ferramentas MCP do GitHub, do mesmo jeito.</p></div>
-    <div class="card reveal d4"><span class="tag">KB só pelo t0</span><p style="color:var(--text)">Escrita no KB passa por comando <code>t0</code> ou por PR na raia de conhecimento. Chave derivada é do <code>kb-render</code>, e editar à mão é bloqueado.</p></div>
-    <div class="card reveal d5"><span class="tag">LGPD</span><p style="color:var(--text)">Transcrição crua fica em <code>~/.t0/inbox/</code>, fora do alcance do agente. A redação roda antes de qualquer modelo. 1:1 nunca é gravado, e tudo segue em dry-run até o aval de LGPD.</p></div>
-  </div>
-  <p class="reveal d5 muted" style="margin-top:34px;font-size:25px">Regra sem exceção mora em hook de git ou CI. Hook de agente é só acelerador.</p>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>19</span></div>
-</section>
-
-<!-- === 20. RAPIDA WALKTHROUGH === -->
-<section class="slide" aria-label="Trilha rápida na prática">
-  <div class="kicker reveal d1">Na prática · trilha rápida</div>
-  <h2 class="reveal d2" style="font-size:60px;margin-bottom:12px">"O export do painel corta a última linha"</h2>
-  <div class="legend reveal d2" style="margin-bottom:30px"><span><i style="background:var(--tint)"></i>agente com o t0</span><span><i style="background:linear-gradient(135deg,var(--red),var(--magenta))"></i>decisão ou ação humana</span></div>
-  <div class="grid g2 reveal d3" style="gap:56px">
-    <div class="steps">
-      <div class="step"><div class="txt"><code>/t0 o export do painel corta a última linha</code><br><span class="muted">cai no playbook <code>rapida</code></span></div></div>
-      <div class="step"><div class="txt"><code>idea-capture</code> roda <code>t0 new idea</code><br><span class="muted">ou reaproveita a Idea que já existe</span></div></div>
-      <div class="step"><div class="txt">Reproduz o bug pelo <code>verify-&lt;app&gt;</code><br><span class="muted">e escreve atual, esperado, o que não muda e o teste</span></div></div>
-      <div class="step"><div class="txt"><code>bet-new rapida IDEA-0042</code><br><span class="muted">Bet, Slice e PR da aposta em draft</span></div></div>
-    </div>
-    <div class="steps" style="counter-reset: s 4">
-      <div class="step human"><div class="txt">Flow Steward ou Bet Owner aprova o PR na daily</div></div>
-      <div class="step"><div class="txt">CI roda <code>t0 jira sync</code><br><span class="muted">o slice fica <code>ready</code></span></div></div>
-      <div class="step"><div class="txt"><code>slice-build &lt;KEY&gt;</code> e <code>slice-verify &lt;KEY&gt;</code><br><span class="muted">teste vermelho, fix, PR em draft com evidência</span></div></div>
-      <div class="step human"><div class="txt">Review do tier e merge<br><span class="muted">o CI fecha com <code>t0 ci</code> e <code>t0 bet ship</code></span></div></div>
-    </div>
-  </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>20</span></div>
-</section>
-
-<!-- === 21. BET WALKTHROUGH === -->
-<section class="slide" aria-label="Bet completa na prática">
-  <div class="kicker reveal d1">Na prática · bet completa</div>
-  <h2 class="reveal d2" style="font-size:60px;margin-bottom:12px">Da ideia ao spec aprovado em poucas dailies</h2>
-  <div class="legend reveal d2" style="margin-bottom:30px"><span><i style="background:var(--tint)"></i>agente com o t0</span><span><i style="background:linear-gradient(135deg,var(--red),var(--magenta))"></i>decisão ou ação humana</span></div>
-  <div class="grid g2 reveal d3" style="gap:56px">
-    <div class="steps">
-      <div class="step"><div class="txt"><code>idea-capture</code><span class="muted">, depois</span> <code>prototype IDEA-0051</code><br><span class="muted">grava <code>t0 idea prototype --verdict segue</code></span></div></div>
-      <div class="step"><div class="txt"><code>bet-new bet IDEA-0051</code><br><span class="muted">PR da aposta; o CI roda <code>t0 gate aposta</code></span></div></div>
-      <div class="step human"><div class="txt">Bet Owner aprova a aposta<br><span class="muted">e o Lead, se cruza pods, é Tier 2 ou passa de 1 semana</span></div></div>
-      <div class="step"><div class="txt"><code>grill</code> com o pod, depois <code>bet-spec BET-007</code><br><span class="muted">termos no glossário, ADR quando é difícil desfazer</span></div></div>
-      <div class="step"><div class="txt"><code>architect</code> com <code>arena</code>, se o desenho é novo<br><span class="muted">para no checkpoint e espera o ok</span></div></div>
-    </div>
-    <div class="steps" style="counter-reset: s 5">
-      <div class="step"><div class="txt"><code>bet-slice BET-007</code><br><span class="muted">um arquivo por slice, no mesmo PR do spec</span></div></div>
-      <div class="step"><div class="txt"><code>t0 gate spec BET-007 --dry-run</code><br><span class="muted">recusa com <code>[PRECISA ESCLARECER]</code> aberto</span></div></div>
-      <div class="step human"><div class="txt">Bet Owner aprova o spec<br><span class="muted">e o Lead também em Tier 2</span></div></div>
-      <div class="step"><div class="txt">CI espelha as Stories no Jira<br><span class="muted">cada slice segue o playbook <code>slice</code></span></div></div>
-      <div class="step human"><div class="txt">Último merge<br><span class="muted">spec congelado, spec vivo do produto atualizado</span></div></div>
-    </div>
-  </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>21</span></div>
-</section>
-
-<!-- === 22. HARNESS LADDER + TIERS === -->
-<section class="slide" aria-label="Escada do harness e tiers">
-  <div class="kicker reveal d1">Qualidade</div>
-  <h2 class="reveal d2" style="font-size:64px;margin-bottom:40px">Erro repetido sobe a escada. Review segue o tier.</h2>
-  <div class="grid" style="grid-template-columns: 1fr 1fr; gap:64px">
-    <div class="reveal d3">
-      <p class="muted" style="font-size:24px;margin-bottom:20px">Na 2ª ocorrência, o Harness Item sobe só até onde resolve:</p>
-      <div class="rungs">
-        <div class="rung"><span class="i">1</span><div><b>Sensor</b><span>lint com mensagem para o agente, teste, hook de git, gate de CI</span></div></div>
-        <div class="rung"><span class="i">2</span><div><b>Regra de área</b><span><code>agents/rules/&lt;area&gt;.md</code>, gerada para as três ferramentas</span></div></div>
-        <div class="rung"><span class="i">3</span><div><b>Skill</b><span>quando é procedimento longo</span></div></div>
-        <div class="rung"><span class="i">4</span><div><b>AGENTS.md</b><span>por último, com até 150 linhas</span></div></div>
-      </div>
+<!-- === 13. GUARDS AND QUALITY === -->
+<section class="slide" aria-label="Travas e qualidade">
+  <div class="kicker reveal d1">Travas e qualidade</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">O agente acelera, o humano decide</h2>
+  <div class="grid" style="grid-template-columns: 1.2fr 1fr; gap:56px">
+    <div class="grid g2 reveal d3" style="gap:24px">
+      <div class="card" style="padding:30px 32px"><span class="tag">Só draft</span><p style="color:var(--text);font-size:23px">Todo PR nasce em draft e fica assim. Só humano ou CI marca pronto e faz merge. Um hook bloqueia o agente se ele tentar.</p></div>
+      <div class="card" style="padding:30px 32px"><span class="tag">Sem forge, sem push</span><p style="color:var(--text);font-size:23px">Sem GitHub alcançável, o PR é a branch local com o corpo em <code>.t0/pr/</code>.</p></div>
+      <div class="card" style="padding:30px 32px"><span class="tag">KB só pelo t0</span><p style="color:var(--text);font-size:23px">O agente grava no KB só pelo comando <code>t0</code>. Índices e estados são gerados pelo CI, e editar à mão é bloqueado.</p></div>
+      <div class="card" style="padding:30px 32px"><span class="tag">LGPD</span><p style="color:var(--text);font-size:23px">Transcrição crua fica fora do alcance do agente e é redigida antes de qualquer modelo. 1:1 nunca é gravado.</p></div>
     </div>
     <div class="reveal d4">
-      <table class="t">
-        <thead><tr><th>Tier</th><th>Exemplos</th><th>Review mínimo</th></tr></thead>
-        <tbody>
-          <tr><td>0</td><td class="m">docs, testes, refactor mecânico</td><td>agente + CI, merge em lote diário</td></tr>
-          <tr><td>1</td><td class="m">feature interna, slice de bet</td><td>agente + 1 humano</td></tr>
-          <tr><td>2</td><td class="m">auth, dado de cliente, superfície pública, prompt de ferramenta das squads</td><td>agente + 2 humanos, blast radius</td></tr>
-        </tbody>
-      </table>
-      <p class="muted" style="font-size:23px;margin-top:24px">O humano só lê depois que o agente de review e o CI passaram. Ferramenta de agente só sai com eval, e incidente vira caso de eval.</p>
+      <h3>A escada do harness</h3>
+      <p class="muted" style="font-size:24px;margin-bottom:20px">Quando o agente erra a mesma coisa duas vezes, o erro vira um Harness Item. No Harness Health, o time escolhe a correção mais forte que resolve: primeiro um check automático (lint, teste, hook, CI), depois uma regra, uma skill e, só por último, uma linha no <code>AGENTS.md</code>.</p>
+      <h3 class="mt-s">O próprio plugin tem eval</h3>
+      <p class="muted" style="font-size:24px">Uma suíte de 21 casos testa as skills no fluxo inteiro, com o Opus como juiz. Em seis rodadas, ela achou 37 problemas, todos corrigidos. Na última, os 21 casos passaram nas duas execuções.</p>
     </div>
   </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>22</span></div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>13</span></div>
 </section>
 
-<!-- === 23. ADOPTION RUNGS === -->
-<section class="slide" aria-label="Degraus de adoção">
-  <div class="kicker reveal d1">Customer zero</div>
-  <h2 class="reveal d2">Ferramenta só sobe de degrau com número</h2>
-  <div class="grid g3 mt">
-    <div class="card reveal d2"><span class="tag">Degrau 1 · time</span><h3>O time usa primeiro</h3><p>Pelo menos 7 dos 10 ativos por semana, 2 semanas seguidas, e regressão de eval em 95% ou mais. PROPOSTA.</p></div>
-    <div class="card reveal d3"><span class="tag">Degrau 2 · piloto</span><h3>2 ou 3 squads piloto</h3><p>Pelo menos 40% dos devs-alvo ativos por 3 semanas e retenção de 50% em 4 semanas. PROPOSTA.</p></div>
-    <div class="card reveal d4"><span class="tag">Degrau 3 · ART</span><h3>Vira outcome do PI</h3><p>O Lead/AIVA leva adoção, valor e lacunas de eval ao ART e decide o degrau.</p></div>
+<!-- === 14. ADVANTAGES === -->
+<section class="slide" aria-label="Vantagens">
+  <div class="kicker reveal d1">Por que é melhor para AI Native</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">Os ganhos em relação ao Scrum e ao SAFe</h2>
+  <div class="grid g3 gains" style="gap:24px">
+    <div class="card reveal d2"><span class="tag">Velocidade</span><h3>Decisão em um dia, não numa sprint</h3><p>A ideia é prototipada na hora e decidida na daily do pod do dia seguinte, sem esperar o próximo planning.</p></div>
+    <div class="card reveal d3"><span class="tag">Evidência</span><h3>Protótipo antes de documento</h3><p>Spec só é escrito para ideia que funcionou no protótipo. No lugar de estimar, o time define um limite de tempo, e parar cedo também conta.</p></div>
+    <div class="card reveal d3"><span class="tag">Tempo</span><h3>Um terço da cerimônia</h3><p>Cerca de 3h20 a cada 2 semanas, contra umas 10h no Scrum. O resto do tempo em grupo é a daily do pod, construindo com o agente.</p></div>
+    <div class="card reveal d4"><span class="tag">Contexto</span><h3>O agente sabe o que o time decidiu</h3><p>Spec, glossário e decisões ficam no KB, que o agente lê em toda sessão. Ele erra menos por falta de contexto.</p></div>
+    <div class="card reveal d4"><span class="tag">Qualidade composta</span><h3>Erro corrigido uma vez só</h3><p>Cada erro que se repete vira um check automático. Depois disso, ninguém precisa pegar esse erro no review.</p></div>
+    <div class="card reveal d5"><span class="tag">Governança</span><h3>Auditoria sem ata</h3><p>As três decisões humanas ficam gravadas como PR aprovado. O ART continua vendo Features, Stories e a Demo no ritmo dele.</p></div>
   </div>
-  <p class="callout reveal d5">"Ativo" é quem invocou a ferramenta em trabalho real numa semana, medido por telemetria. Nenhum ranking de pessoa por token, PR ou sessão: token é piso e custo, nunca meta.</p>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>23</span></div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>14</span></div>
 </section>
 
-<!-- === 24. HOW TO START === -->
-<section class="slide" aria-label="Como começar amanhã">
-  <div class="kicker reveal d1">Amanhã cedo</div>
-  <h2 class="reveal d2">Como começar</h2>
-  <div class="grid g2 mt" style="gap:64px">
-    <div class="steps reveal d3" style="gap:26px">
-      <div class="step"><div class="txt">Instale o pacote <code>t0</code> e o plugin, e rode <code>t0 doctor</code>.</div></div>
-      <div class="step"><div class="txt">Monte o workspace do seu pod com <code>t0 ws init &lt;produto&gt;</code> e abra a pasta <code>~/ws/&lt;produto&gt;/</code>.</div></div>
-      <div class="step"><div class="txt">No repo de produto, rode <code>t0 setup</code>. Sem <code>verify-&lt;app&gt;</code>, chame <code>verify-setup</code>.</div></div>
-    </div>
-    <div class="steps reveal d4" style="gap:26px;counter-reset:s 3">
-      <div class="step"><div class="txt">Leve a primeira ideia para a daily do pod com <code>/t0</code> e prototipe ali mesmo.</div></div>
-      <div class="step"><div class="txt">Confira no KB, em <code>team/rotations/</code>, quem é Harness Keeper e Flow Steward nesta quinzena.</div></div>
-      <div class="step"><div class="txt">Viu o agente errar duas vezes a mesma coisa? Leve para o Harness Health da semana.</div></div>
-    </div>
-  </div>
-  <div class="chrome"><span><b>t0</b> metodologia</span><span>24</span></div>
+<!-- === 15. GLOSSARY === -->
+<section class="slide" aria-label="Glossário">
+  <div class="kicker reveal d1">Glossário rápido</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:34px">Os termos que você vai ouvir</h2>
+  <dl class="gloss reveal d3">
+    <div><dt>Harness</dt><dd>tudo que cerca o agente para ele errar menos: <code>AGENTS.md</code>, skills, linters, hooks, CI</dd></div>
+    <div><dt>Harness Item</dt><dd>uma classe de erro de agente, com as ocorrências e a correção escolhida</dd></div>
+    <div><dt>OKF</dt><dd>o formato do KB: Markdown com frontmatter, índice por pasta e tipos definidos</dd></div>
+    <div><dt>Skill</dt><dd>instrução empacotada que o agente segue num passo, chamada pelo nome</dd></div>
+    <div><dt>Playbook</dt><dd>a sequência de passos que o <code>/t0</code> escolhe para um pedido</dd></div>
+    <div><dt>MCP <code>t0-kb</code></dt><dd>servidor local que deixa o agente buscar e ler o KB</dd></div>
+    <div><dt>Card de contexto</dt><dd>o <code>AGENTS.md</code> gerado na raiz do workspace, com a bet ativa</dd></div>
+    <div><dt>Seam (costura)</dt><dd>o ponto do código onde o comportamento é testado; o spec combina qual</dd></div>
+    <div><dt>Gate</dt><dd>o check de CI que confere uma decisão humana no PR</dd></div>
+    <div><dt>Ritual Record</dt><dd>o registro de um ritual, com decisões e donos, gravado no close</dd></div>
+    <div><dt><code>.audit/&lt;KEY&gt;.tsv</code></dt><dd>a trilha de decisões de um slice, commitada no PR</dd></div>
+    <div><dt>same-family</dt><dd>rótulo de review feito por modelos da mesma família; a concordância vale menos</dd></div>
+    <div><dt>Draft</dt><dd>o estado em que todo PR nasce e fica até um humano marcar pronto</dd></div>
+    <div><dt>Degrau</dt><dd>passo de adoção: o time, depois squads piloto, depois o ART</dd></div>
+    <div><dt>Domain Expert</dt><dd>dev de squad chamado para a daily do pod quando a bet toca o trabalho dela</dd></div>
+  </dl>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>15</span></div>
 </section>
 
-<!-- === 25. CLOSING === -->
+<!-- === 16. CLOSING === -->
 <section class="slide title-slide" aria-label="Encerramento">
   <div class="bands" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
   <div class="kicker reveal d1">Para levar</div>
   <h1 class="reveal d2" style="font-size:112px">Protótipo hoje.<br>Decisão amanhã.<br><span class="grad">Registro sempre.</span></h1>
-  <p class="lead reveal d3">Três decisões humanas, seis rituais e um comando de entrada. O resto o <code>/t0</code> grava por você.</p>
+  <p class="lead reveal d3">Três decisões humanas, seis rituais, um KB e um comando de entrada. A documentação completa está em <code>docs/index.html</code>.</p>
 </section>
 
 </main>
@@ -818,7 +665,7 @@ table.t td.m { color: var(--muted); }
 <!-- === DECK CONTROLS === -->
 <nav class="deck-controls" aria-label="Navegação">
   <button id="prevBtn" aria-label="Slide anterior"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-  <span class="counter" id="counter">1 / 25</span>
+  <span class="counter" id="counter">1 / 16</span>
   <button id="nextBtn" aria-label="Próximo slide"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
   <span class="sep"></span>
   <button id="themeBtn" aria-label="Alternar tema claro e escuro"><svg viewBox="0 0 24 24" id="themeIcon"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
