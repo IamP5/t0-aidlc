@@ -257,3 +257,29 @@ def test_products_default_to_the_person_pods(env):
     home = Path(os.environ["HOME"])
     assert run_install(InstallArgs(kb=str(kb), handle="ana-exemplo"), host=FakeClaude(False).host()) == 0
     assert (home / "ws/exemplo/status-bot/.git").is_dir()
+
+
+def test_link_loads_the_plugin_from_the_clone_and_drops_the_marketplace_copy(env, capsys):
+    kb = make_kb(env, [])
+    home = Path(os.environ["HOME"])
+    fake = FakeClaude()
+    fake.state.add("t0@t0-aidlc")
+    args = InstallArgs(kb=str(kb), plugin_source=str(REPO), link=True)
+    assert run_install(args, host=fake.host()) == 0
+    link = home / ".claude/skills/t0"
+    assert link.resolve() == (REPO / "plugin").resolve()
+    changes = [c for c in fake.calls if "list" not in c]
+    assert changes == [("claude", "plugin", "uninstall", "t0@t0-aidlc")]
+    fake.state.discard("t0@t0-aidlc")
+    capsys.readouterr()
+    assert run_install(args, check=True, host=fake.host()) == 0
+    assert "pendente" not in capsys.readouterr().out
+
+
+def test_link_refuses_a_folder_in_the_way(env, capsys):
+    kb = make_kb(env, [])
+    home = Path(os.environ["HOME"])
+    (home / ".claude/skills/t0").mkdir(parents=True)
+    assert run_install(InstallArgs(kb=str(kb), plugin_source=str(REPO), link=True), host=FakeClaude().host()) == 0
+    assert "existe e não é um link" in capsys.readouterr().out
+    assert not (home / ".claude/skills/t0").is_symlink()

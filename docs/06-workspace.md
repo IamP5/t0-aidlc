@@ -77,11 +77,19 @@ O `install.sh` precisa de `python3` 3.11 ou mais novo e de `git`. Ele instala a 
 
 - grava `~/.t0/config.yaml` com `handle`, `kb`, `kb_remote` e `ws_root`, todos em caminho absoluto, e mantém as outras chaves. Com o `gh` no PATH e sem `forge` no config, grava também `forge: github:<dono>/<repo>` a partir do remote do KB;
 - clona o KB em `~/kb`, se ainda não houver um KB no `kb` do config;
-- instala o plugin no Claude Code (`claude plugin marketplace add` e `claude plugin install t0@t0-aidlc`), se o `claude` estiver no PATH;
+- instala o plugin no Claude Code (`claude plugin marketplace add` e `claude plugin install t0@t0-aidlc`), se o `claude` estiver no PATH, ou liga o plugin do clone com `--link`;
 - junta em `~/.claude/settings.json` os `additionalDirectories` de `~/ws`, `~/kb` e `~/kb.wt` e o `instructionFiles`, sem mexer nas outras chaves;
 - roda o `t0 ws init` para cada produto dos `pods` do seu arquivo em `team/people/<handle>.md`, ou para cada `--product` que você passar.
 
 Rodar de novo não muda nada. O `t0 install --check` mostra o que falta e sai com 1 se houver pendência.
+
+Para usar o plugin e a CLI direto do seu clone do t0-aidlc, sem marketplace, passe `--link`:
+
+```
+./install.sh --link --kb <remote ou pasta do KB>
+```
+
+Com `--link`, a CLI é instalada em modo editável e o plugin é carregado por um link `~/.claude/skills/t0 -> <clone>/plugin`. O Claude Code mostra esse plugin como `t0@skills-dir`. Um `git pull` no clone atualiza os dois, e o plugin muda na próxima sessão. Se o `t0@t0-aidlc` do marketplace estiver instalado, o `t0 install --link` desinstala esse plugin para não carregar o t0 duas vezes. O `--kb` também aceita a pasta de um KB já clonado, e então nada é clonado. O `t0 kb init` cria um KB novo a partir do `okf-template` do clone.
 
 Para montar o workspace de outro produto depois:
 

@@ -25,11 +25,13 @@ Um comando instala tudo. Clone o repo do t0 e rode:
 
 O script instala a CLI a partir de `./toolkit`, com `uv` ou `pipx` (Python 3.11 ou mais novo). Depois roda o `t0 install`, que adiciona o marketplace deste repo ao Claude Code, instala o plugin `t0@t0-aidlc`, grava as configs de usuário e monta os workspaces dos seus produtos. O passo a passo está em [Workspace](06-workspace.md).
 
+Com `./install.sh --link`, nada passa pelo marketplace. A CLI fica editável, e o plugin é carregado do clone por `~/.claude/skills/t0`, como `t0@skills-dir`. Um `git pull` atualiza os dois.
+
 Sem o `claude` no PATH, o `t0 install` pula o plugin e imprime o comando para rodar depois. Copilot e Kiro ainda são à mão:
 
 | Ferramenta | Como |
 |---|---|
-| Claude Code | `t0 install`; à mão, `claude plugin marketplace add <repo t0-aidlc>` e `claude plugin install t0@t0-aidlc`; para testar local, `claude --plugin-dir ./plugin` |
+| Claude Code | `t0 install` ou `t0 install --link`; à mão, `claude plugin marketplace add <repo t0-aidlc>` e `claude plugin install t0@t0-aidlc`; para testar local, `claude --plugin-dir ./plugin` |
 | Copilot CLI | `copilot plugin install`, que lê o formato Claude (não verificado no ambiente do banco) |
 | Copilot no VS Code | como Agent Plugin, no formato Agent Plugins 1.0 (não verificado) |
 | Kiro | como power, no formato Agent Plugins 1.0 (não verificado) |

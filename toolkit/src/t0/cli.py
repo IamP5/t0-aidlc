@@ -471,7 +471,7 @@ def cmd_install(a: argparse.Namespace) -> int:
     from . import install
 
     args = install.InstallArgs(kb=a.kb, handle=a.handle, root=a.root, products=tuple(a.product or ()),
-                               plugin_source=a.plugin_source)
+                               plugin_source=a.plugin_source, link=a.link)
     return install.run_install(args, check=a.check)
 
 
@@ -604,6 +604,8 @@ def build_parser() -> argparse.ArgumentParser:
     ins.add_argument("--root", metavar="DIR", help="raiz dos workspaces (padrão ~/ws)")
     ins.add_argument("--product", action="append", metavar="P", help="produto a montar (padrão: os pods do seu Person)")
     ins.add_argument("--plugin-source", metavar="DIR|dono/repo", help="marketplace do plugin t0 (o install.sh passa o repo)")
+    ins.add_argument("--link", action="store_true",
+                     help="carrega o plugin direto do clone (~/.claude/skills/t0 -> <repo>/plugin), sem marketplace; git pull atualiza")
     ins.add_argument("--check", action="store_true", help="só confere; exit 1 se há mudança pendente")
 
     wsp = sub.add_parser("ws", help="workspace do produto").add_subparsers(dest="wscmd", required=True)

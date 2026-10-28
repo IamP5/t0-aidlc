@@ -16,7 +16,7 @@ Nos comandos que aceitam `--format`, o relatório sai em `text`, `github` ou `js
 
 | Comando | O que faz |
 |---|---|
-| `t0 install [--kb URL\|PASTA] [--handle H] [--root DIR] [--product P ...] [--plugin-source S] [--check]` | uma vez por máquina: grava `~/.t0/config.yaml`, clona o KB, instala o plugin no Claude Code, junta `additionalDirectories` e `instructionFiles` em `~/.claude/settings.json` e roda o `ws init` dos seus produtos; rodar de novo não muda nada |
+| `t0 install [--kb URL\|PASTA] [--handle H] [--root DIR] [--product P ...] [--plugin-source S] [--link] [--check]` | uma vez por máquina: grava `~/.t0/config.yaml`, clona o KB, instala o plugin no Claude Code (com `--link`, liga `~/.claude/skills/t0` ao `plugin/` do clone, sem marketplace), junta `additionalDirectories` e `instructionFiles` em `~/.claude/settings.json` e roda o `ws init` dos seus produtos; rodar de novo não muda nada |
 | `t0 ws init <produto> [--root DIR] [--check]` | monta `~/ws/<produto>`: link `kb`, um clone por repo do manifesto (o que falha vai para `absent`), `AGENTS.md`, `.t0/workspace.json` e `.t0/env.sh`; lista os repos sem o bloco t0 |
 | `t0 setup [--repo R] [--check]` | num repo de produto, escreve o bloco t0 no `AGENTS.md`, os ponteiros por ferramenta, os hooks e os links das skills `verify-<app>` |
 | `t0 doctor` | confere a instalação: `t0` no PATH, config das ferramentas, hooks e se o KB está alcançável; avisa quando o `kb/` do workspace não é o clone do `config.yaml`, quando o Claude Code não tem `additionalDirectories` absolutos para `~/ws`, `~/kb` e `~/kb.wt` e quando o `instructionFiles` não é `claude-md-and-agents-md` |

@@ -4,8 +4,10 @@ Same shape as setup.py: a plan of typed actions read from the machine, an apply 
 `--check` prints what is pending (exit 1 if anything is), and a second run finds nothing to do.
 
   t0 install    ~/.t0/config.yaml (handle, kb, kb_remote, ws_root, forge), the shared KB clone, the Claude
-                Code plugin (marketplace add + install), ~/.claude/settings.json (additionalDirectories and
-                instructionFiles), then `ws init` for each product the person works in
+                Code plugin (marketplace add + install, or with --link a symlink ~/.claude/skills/t0 -> the
+                clone's plugin/, which Claude Code loads as t0@skills-dir with no cache copy),
+                ~/.claude/settings.json (additionalDirectories and instructionFiles), then `ws init` for each
+                product the person works in
   t0 ws init    <ws_root>/<p>/: kb -> the shared clone, one clone per manifest repo (a failed clone goes to
                 `absent`), .t0/workspace.json, AGENTS.md (the card), .t0/env.sh
 
@@ -197,6 +199,7 @@ class InstallArgs:
     root: str | None = None
     products: tuple[str, ...] = ()
     plugin_source: str | None = None
+    link: bool = False
 
 
 @dataclass(frozen=True)
@@ -243,15 +246,38 @@ def marketplace_name(source: str) -> str:
         return MARKETPLACE
 
 
-def plugin_actions(source: str | None, host: Host) -> list[Action]:
+def skills_link() -> Path:
+    return Path.home() / ".claude/skills" / PLUGIN
+
+
+def _link_actions(plugin_dir: Path, ref: str, host: Host) -> list[Action]:
+    dest = skills_link()
+    out: list[Action] = []
+    if dest.is_symlink():
+        if dest.resolve() != plugin_dir.resolve():
+            out.append(Link(str(dest), str(plugin_dir)))
+    elif dest.exists():
+        return [Skip(f"{dest} existe e não é um link; mova a pasta e rode de novo")]
+    else:
+        out.append(Link(str(dest), str(plugin_dir)))
+    if host.which("claude") is not None and ref in host.run(("claude", "plugin", "list")).stdout:
+        out.append(Run(("claude", "plugin", "uninstall", ref)))
+    return out
+
+
+def plugin_actions(source: str | None, host: Host, link: bool = False) -> list[Action]:
     if not source:
         return [Skip("plugin: passe --plugin-source <pasta do t0-aidlc ou dono/repo> (o install.sh já passa)")]
     name = marketplace_name(source)
     ref = f"{PLUGIN}@{name}"
-    plugin_dir = Path(source).expanduser() / "plugin"
+    plugin_dir = _abs(source) / "plugin"
     shown = str(plugin_dir) if plugin_dir.is_dir() else f"{source} (pasta plugin/)"
     out: list[Action] = []
-    if host.which("claude") is None:
+    if link:
+        if not (plugin_dir / ".claude-plugin/plugin.json").is_file():
+            return [Skip(f"--link precisa de um clone local do t0-aidlc; {plugin_dir} não tem .claude-plugin/plugin.json")]
+        out += _link_actions(plugin_dir, ref, host)
+    elif host.which("claude") is None:
         out.append(Skip(f"Claude Code: `claude` fora do PATH; depois de instalar, rode "
                         f"`claude plugin marketplace add {source}` e `claude plugin install {ref}`"))
     else:
@@ -259,6 +285,8 @@ def plugin_actions(source: str | None, host: Host) -> list[Action]:
             out.append(Run(("claude", "plugin", "marketplace", "add", source)))
         if ref not in host.run(("claude", "plugin", "list")).stdout:
             out.append(Run(("claude", "plugin", "install", ref)))
+        if skills_link().is_symlink():
+            out.append(Skip(f"{skills_link()} também carrega o plugin (t0@skills-dir); apague o link para não carregar duas vezes"))
     out.append(Skip(f"Copilot CLI: à mão, `copilot plugin install {shown}` (lê o formato Claude; não verificado)"))
     out.append(Skip(f"Kiro: à mão, importe {shown} como power (Agent Plugins 1.0; não verificado)"))
     return out
@@ -305,7 +333,7 @@ def plan_install(args: InstallArgs, host: Host) -> InstallPlan:
         actions.append(WriteFile(str(config_path()), yaml.safe_dump(new_cfg, sort_keys=False, allow_unicode=True)))
     if kbc.clone:
         actions.append(kbc.clone)
-    actions += plugin_actions(args.plugin_source, host)
+    actions += plugin_actions(args.plugin_source, host, args.link)
     actions += settings_actions((ws_root, kbc.path, worktree_root(kbc.path)), host)
     return InstallPlan(kbc, ws_root, handle, tuple(actions))
 
