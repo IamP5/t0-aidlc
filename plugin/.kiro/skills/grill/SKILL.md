@@ -59,7 +59,7 @@ Quando um termo se resolve, grave ali mesmo, um por vez. O glossário do KB tem 
 
 Onde gravar:
 
-- com bet ativa, no clone do KB, na branch da bet (`bet/<BET>/...`). Commite cada termo; ele chega ao `main` no PR da bet;
+- com bet ativa, no worktree da branch da bet (`bet/<BET>/...`), que o `git -C kb worktree list` lista. Commite cada termo; ele chega ao `main` no PR da bet;
 - sem bet (grill de uma ideia solta), guarde a lista e mostre no fechamento. A skill `bet-new` ou a `bet-spec` grava esses termos quando abrir a branch da bet.
 
 Para mudar um termo que já existe, edite o arquivo dele. Os arquivos derivados do KB (`index.md`, `log.md`) ficam com o `kb-render`.

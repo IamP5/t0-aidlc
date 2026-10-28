@@ -24,7 +24,7 @@ Abra uma lista de tarefas com uma entrada por fase antes de começar:
 
 Monte um modelo mental de verdade de cada sistema que o desenho toca. Citar o nome de um arquivo não conta como fundamentar.
 
-1. Resolva a bet. Se o humano nomeou a bet, rode `t0 bet use <BET>` sem perguntar: é estado local e reversível. Senão, use `bet_detect` do MCP `t0-kb` ou `t0 bet detect`. Só peça a bet se nenhum dos dois achar.
+1. Resolva a bet. Se o humano nomeou a bet, rode `t0 bet use <BET>` sem perguntar: é estado local e reversível. Se ele recusar porque a bet é de outro produto, repasse a recusa ao humano e pare. Senão, use `bet_detect` do MCP `t0-kb` ou `t0 bet detect`. Só peça a bet se nenhum dos dois achar.
 2. Leia o KB pelo MCP `t0-kb`:
    - `kb_context <BET>` para o card;
    - `kb_get` no `spec.md` da bet: problema, solução, critérios de aceite, costuras de teste, tier. Sem spec, siga com a Bet e a Idea: o spec nasce na Fase D;
@@ -74,7 +74,7 @@ Se o humano contestar a forma, trate isso como evidência da Fase A. Fundamente 
 
 Só com o ok explícito do humano.
 
-1. No clone do KB, vá para a branch da bet. Sem `spec.md`, crie o esqueleto com `t0 new spec <BET>`. Escreva ou atualize a seção `## Design` de `products/<pod>/bets/<BET>/spec.md` no formato de [`references/rationale-template.md`](references/rationale-template.md). O esboço de tipos entra como bloco de código nessa seção.
+1. Trabalhe no worktree da branch da bet, que o `t0` imprime e o `git -C kb worktree list` lista. Nunca troque a branch do clone do KB. Sem `spec.md`, crie o esqueleto com `t0 new spec <BET>`. Escreva ou atualize a seção `## Design` de `products/<pod>/bets/<BET>/spec.md` no formato de [`references/rationale-template.md`](references/rationale-template.md). O esboço de tipos entra como bloco de código nessa seção.
 2. Se a decisão é difícil de desfazer, rode `t0 new adr` com o título da decisão e preencha o ADR com o contexto, a decisão, as alternativas e as consequências, tirados do racional. Cite o ADR na seção Design. Difícil de desfazer quer dizer: formato de dado persistido, contrato público (MCP, CLI, skill, API), fronteira entre repos ou pods, ou escolha que obriga migração para voltar atrás.
 3. Faça commit na branch do spec e deixe o PR do spec carregar a mudança. Não toque em `index.md`, `log.md`, `changeset.md` nem em chave derivada.
 4. Candidato nunca entra no KB. Só o desenho escolhido entra.

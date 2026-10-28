@@ -14,11 +14,19 @@ export T0_HANDLE="${USER:-dev}"
 # Identity for the KB and repo commits, set per repository (never --global: the scaffold runs as the real user).
 for _r in kb */; do [ -d "$_r/.git" ] || [ -d "$_r.git" ] || continue; git -C "$_r" config user.email eval@t0; git -C "$_r" config user.name eval; done
 
-# The human approval of a knowledge PR, with no forge: merge the KB branch into main.
+# The human approval of a knowledge PR, with no forge: merge every open knowledge branch into main.
+# t0 keeps the kb/ clone on main and writes each knowledge branch in its worktree, kb.wt/<branch>.
 approve() {
-  local b; b=$(git -C kb branch --show-current)
-  [ "$b" = main ] && return 0
-  git -C kb checkout -q main && git -C kb merge -q --no-ff -m "aprovado: $b" "$b"
+  local b
+  for b in $(git -C kb branch --no-merged main --format='%(refname:short)' --list 'bet/*' 'kb/*'); do
+    git -C kb merge -q --no-ff -m "aprovado: $b" "$b"
+  done
+}
+# The worktree t0 uses for a knowledge branch, restarted from main (as t0 does for a merged branch).
+kbwt() {
+  local p="kb.wt/$1"
+  if [ -d "$p" ]; then git -C "$p" switch -q --no-track -C "$1" main; else git -C kb worktree add -q --no-track -B "$1" "../$p" main; fi
+  echo "$p"
 }
 t0q() { ./.t0/bin/t0 "$@" >/dev/null; }
 
@@ -45,12 +53,11 @@ state_bet() {
 # BET-003 with an approved spec (copied fixture) and slice SBP-2 ready.
 state_spec() {
   state_bet
-  local d=kb/products/dev-tooling/bets/BET-003
-  git -C kb checkout -q -B bet/BET-003/$T0_HANDLE
-  cp "$_ROOT/plugin/evals/_lib/fixtures/spec-version.md" "$d/spec.md"
+  local wt; wt=$(kbwt bet/BET-003/$T0_HANDLE)
+  cp "$_ROOT/plugin/evals/_lib/fixtures/spec-version.md" "$wt/products/dev-tooling/bets/BET-003/spec.md"
   t0q new slice BET-003 --repo springboot-plugin --tier 1 --title "Flag --version" \
     --body-file "$_ROOT/plugin/evals/_lib/fixtures/slice-version.md"
-  git -C kb add -A && git -C kb commit -qm "spec + slice" || true
+  git -C "$wt" add -A && git -C "$wt" commit -qm "spec + slice" || true
   t0q gate spec BET-003
   approve
   mkdir -p .t0/jira && t0q jira sync --tracker file:.t0/jira --apply
@@ -67,9 +74,9 @@ approve_records() {
 # BET-003 active, its spec written on the bet branch, not yet approved (bet-slice picks up from here).
 state_bet_with_spec_draft() {
   state_bet
-  git -C kb checkout -q -B bet/BET-003/$T0_HANDLE
-  cp "$_ROOT/plugin/evals/_lib/fixtures/spec-version.md" kb/products/dev-tooling/bets/BET-003/spec.md
-  git -C kb add -A && git -C kb commit -qm "spec da BET-003"
+  local wt; wt=$(kbwt bet/BET-003/$T0_HANDLE)
+  cp "$_ROOT/plugin/evals/_lib/fixtures/spec-version.md" "$wt/products/dev-tooling/bets/BET-003/spec.md"
+  git -C "$wt" add -A && git -C "$wt" commit -qm "spec da BET-003"
 }
 # SBP-2 built on its branch, with a planted defect: --help does not list --version.
 state_built() {

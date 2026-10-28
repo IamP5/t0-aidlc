@@ -13,7 +13,7 @@ Os slices vão na mesma branch e no mesmo PR do spec. Aprovar esse PR é a decis
 
 ## 1. Junte o contexto
 
-- `t0 bet detect` devolve a bet e o pod. Trabalhe no clone do KB, na branch `bet/<BET>/...` que já tem o `spec.md`.
+- `t0 bet detect` devolve a bet e o pod. Trabalhe no worktree da branch `bet/<BET>/...` que já tem o `spec.md`. O `git -C kb worktree list` mostra onde ele está.
 - Sem spec na trilha `bet`, siga primeiro para a skill `bet-spec`. Na trilha `rapida` o slice já nasceu no `bet-new`: diga isso e pare.
 - Leia o spec inteiro, o `products/<pod>/workspace.md` (repos e `depends_on` entre eles), os ADRs da área e o glossário.
 - Se já existem slices em `slices/`, você está refazendo o corte. Edite os arquivos existentes e mantenha os números quando der.

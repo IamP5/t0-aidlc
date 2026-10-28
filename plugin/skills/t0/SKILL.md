@@ -20,7 +20,7 @@ Valem em todo playbook e em toda skill de passo. Um hook bloqueia boa parte dele
 - Todo PR nasce em draft e fica em draft. Marcar pronto, fazer merge, force push e `reset --hard` são do humano ou do CI. Nenhum passo seu pede, sugere ou contorna isso. Sem forge (sem remote, `gh` ausente ou bloqueado), o PR em draft de repo de produto é a branch local com o corpo do PR na mensagem do último commit (ou em `.t0/pr/<branch>.md`). Diga isso na resposta e nunca tente push. No KB, o `t0 kb propose` já cuida disso.
 - Há três decisões humanas: aposta (aprovar o PR que o `bet-new` abre), spec (aprovar o PR do spec com os slices) e degrau (v0.2). Você prepara a decisão, abre o PR, mostra a evidência e para. Aprovar o PR é decidir.
 - Trabalho reversível dentro de um slice segue sem perguntar: código, teste, commit na branch do slice, rascunho na branch da bet, protótipo fora do main.
-- Escrita no KB passa por comando `t0` (`t0 new ...`, `t0 log ...`, `t0 idea prototype ...`, `t0 ritual ...`) ou por arquivo na branch da bet, na raia de conhecimento, que entra por PR. Arquivos derivados (`index.md`, `log.md`, `changeset.md`) e chaves derivadas (`state` do Slice depois de `ready`, `pr`, `audit`, `jira`, `markers_open`, `status`) são do `kb-render`. Leia e deixe como estão.
+- Escrita no KB passa por comando `t0` (`t0 new ...`, `t0 log ...`, `t0 idea prototype ...`, `t0 ritual ...`) ou por arquivo no worktree da branch da bet, na raia de conhecimento, que entra por PR. O `t0` imprime o caminho do worktree. O clone do KB fica no `main`: nunca troque a branch dele. Arquivos derivados (`index.md`, `log.md`, `changeset.md`) e chaves derivadas (`state` do Slice depois de `ready`, `pr`, `audit`, `jira`, `markers_open`, `status`) são do `kb-render`. Leia e deixe como estão.
 - O Jira é do CI (`t0 jira sync` depois do merge). Nenhum passo chama Jira nem issue tracker.
 - `~/.t0/inbox/` guarda transcrição crua e fica fora de qualquer leitura sua. Transcrição entra só redigida, pelo `ritual <slug> close --transcript`, que roda `t0 transcript redact` antes.
 - O modelo de qualquer execução paralela (`arena`, `swarm`, runners do `architect`, subagentes) vem da Policy `methodology/policies/models.md` do KB. Com uma família só aprovada, marque a saída `same-family`.
@@ -49,7 +49,7 @@ Valem em todo playbook e em toda skill de passo. Um hook bloqueia boa parte dele
 
 Comandos `t0` que você chama direto:
 
-- `t0 bet detect` acha a bet ativa e `t0 bet use <BET>` fixa. No MCP `t0-kb`, `bet_detect`.
+- `t0 bet detect` acha a bet ativa e `t0 bet use <BET>` fixa. Bet de outro produto é recusada: repasse a recusa, não edite o `.t0/bet.json`. No MCP `t0-kb`, `bet_detect`.
 - `t0 kb find|get`, ou `kb_find`, `kb_get` e `kb_context` no MCP `t0-kb`, leem o KB.
 - `t0 context <ref> --format subagent` gera o card de contexto para o brief de um subagente.
 - `t0 log decision|blocker|progress "<texto>" --bet <BET> --story <KEY>` registra decisão em voo, trava e progresso. Decisão que muda contrato (spec, API, modelo de dados) vira ADR pelo `grill` ou pelo `bet-spec`.

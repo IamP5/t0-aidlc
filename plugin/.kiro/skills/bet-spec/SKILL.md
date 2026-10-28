@@ -19,7 +19,7 @@ O spec fica só no KB. Nenhum passo desta skill fala com Jira ou issue tracker: 
 - `t0 kb get <BET>`, ou `products/<pod>/bets/<BET>/bet.md`. A bet precisa estar `active` e na trilha `bet`.
   - `proposed`: a aposta ainda não foi aprovada. Diga isso e pare.
   - trilha `rapida`: não tem spec, o slice já nasceu no `bet-new`. Diga isso e pare.
-- Trabalhe no clone do KB (a pasta `kb/` do workspace, ou a raiz quando você já está nele). Se a branch atual é `bet/<BET>/...`, use ela. Senão, crie `bet/<BET>/spec` a partir do `main` atualizado.
+- Trabalhe no worktree da branch da bet, que o `t0` imprime e o `git -C kb worktree list` lista. Sem worktree, o `t0 new spec <BET>` cria um e imprime o caminho. Nunca troque a branch do clone do KB: ele fica no `main`.
 
 ## 2. Explore
 
