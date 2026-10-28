@@ -1,0 +1,16 @@
+{
+  "name": "t0-aidlc",
+  "owner": {
+    "name": "t0"
+  },
+  "metadata": {
+    "description": "Marketplace do t0: o plugin com as skills, hooks e o MCP t0-kb"
+  },
+  "plugins": [
+    {
+      "name": "t0",
+      "source": "./plugin",
+      "description": "AIDLC t0 toolkit: OKF knowledge base, methodology gates, rituals and agent adapters"
+    }
+  ]
+}

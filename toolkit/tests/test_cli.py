@@ -180,8 +180,11 @@ def test_doctor_warns_on_a_second_kb_clone_and_on_claude_dirs_it_cannot_open(cap
     code, out = t0(capsys, "doctor")
     need = [str((tmp_path / "ws").resolve()), str(shared.resolve()), str((tmp_path / "kb.wt").resolve())]
     assert json.dumps(need) in out, out
+    assert "aviso Claude Code instructionFiles" in out
     (home / ".claude/settings.json").write_text(json.dumps(
-        {"permissions": {"additionalDirectories": [str((tmp_path / "ws").resolve()), str(tmp_path.resolve())]}}))
+        {"permissions": {"additionalDirectories": [str((tmp_path / "ws").resolve()), str(tmp_path.resolve())]},
+         "pluginConfigs": {"cc-plugin-agents-md@builtin": {"options": {"instructionFiles": "claude-md-and-agents-md"}}}}))
     code, out = t0(capsys, "doctor")
     assert f"ok    KB compartilhado: {ws / 'kb'} -> {shared.resolve()}" in out
+    assert "ok    Claude Code instructionFiles" in out
     assert "ok    Claude Code additionalDirectories" in out and "aviso" not in out

@@ -467,6 +467,21 @@ def cmd_setup(a: argparse.Namespace) -> int:
     return setup.run(repo=Path(a.repo) if a.repo else None, check=a.check)
 
 
+def cmd_install(a: argparse.Namespace) -> int:
+    from . import install
+
+    args = install.InstallArgs(kb=a.kb, handle=a.handle, root=a.root, products=tuple(a.product or ()),
+                               plugin_source=a.plugin_source)
+    return install.run_install(args, check=a.check)
+
+
+def cmd_ws(a: argparse.Namespace) -> int:
+    from . import install
+
+    return install.ws_init(a.product, root=Path(a.root) if a.root else None,
+                           kb_dir=Path(a.kb).resolve() if a.kb else None, check=a.check)
+
+
 def _shared_kb_rows(kb: Any) -> list[tuple[str, bool | None, str]]:
     """Several workspaces, one KB clone: `<ws>/kb` is a symlink to config `kb:`, and Claude Code may open the
     workspaces' parent, the KB and its worktrees without asking. Reads only."""
@@ -506,6 +521,12 @@ def _shared_kb_rows(kb: Any) -> list[tuple[str, bool | None, str]]:
                      "cobre " + ", ".join(map(str, need)) if not missing else
                      "adicione em ~/.claude/settings.json: \"permissions\": {\"additionalDirectories\": "
                      + json.dumps([str(d) for d in missing]) + "} (caminho absoluto, sem ~)"))
+        from .install import INSTRUCTION_FILES, instruction_files
+
+        mode = instruction_files(settings) if isinstance(settings, dict) else None
+        rows.append(("Claude Code instructionFiles", True if mode == INSTRUCTION_FILES else None,
+                     mode if mode == INSTRUCTION_FILES else f"é `{mode or 'padrão'}`; com CLAUDE.md nos repos o AGENTS.md "
+                     f"do workspace não carrega: rode `t0 install` ou ponha `{INSTRUCTION_FILES}` em /config"))
     return rows
 
 
@@ -575,6 +596,21 @@ def build_parser() -> argparse.ArgumentParser:
     se.set_defaults(fn=cmd_setup)
     se.add_argument("--repo")
     se.add_argument("--check", action="store_true", help="só confere; exit 1 se há mudança pendente")
+
+    ins = sub.add_parser("install", help="uma vez por máquina: config, clone do KB, plugin, settings do Claude e workspaces")
+    ins.set_defaults(fn=cmd_install)
+    ins.add_argument("--kb", metavar="URL|PASTA", help="remote do KB para clonar, ou a pasta de um KB já clonado")
+    ins.add_argument("--handle")
+    ins.add_argument("--root", metavar="DIR", help="raiz dos workspaces (padrão ~/ws)")
+    ins.add_argument("--product", action="append", metavar="P", help="produto a montar (padrão: os pods do seu Person)")
+    ins.add_argument("--plugin-source", metavar="DIR|dono/repo", help="marketplace do plugin t0 (o install.sh passa o repo)")
+    ins.add_argument("--check", action="store_true", help="só confere; exit 1 se há mudança pendente")
+
+    wsp = sub.add_parser("ws", help="workspace do produto").add_subparsers(dest="wscmd", required=True)
+    wi = add(wsp, "init", cmd_ws, help="monta <ws_root>/<produto>: link do KB, clones, AGENTS.md, .t0/")
+    wi.add_argument("product", metavar="produto")
+    wi.add_argument("--root", metavar="DIR", help="raiz dos workspaces (padrão: ws_root do config, ou ~/ws)")
+    wi.add_argument("--check", action="store_true", help="só confere; exit 1 se há mudança pendente")
 
     kb = sub.add_parser("kb", help="KB: check, find, get, render, push, init, propose").add_subparsers(dest="kbcmd", required=True)
     c = add(kb, "check", cmd_kb_check, help="conformidade OKF + profile t0-team")

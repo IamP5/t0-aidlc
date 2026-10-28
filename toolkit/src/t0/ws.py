@@ -2,7 +2,8 @@
 
 v0.1 scope: locate an existing workspace, read the manifest (`workspace:` block of
 /products/<p>/workspace.md), the bet detection chain, `bet use` (writes .t0/bet.json) and
-`slice start` (creates the slice branch in its repo). No cloning (`ws init|sync` are deferred).
+`slice start` (creates the slice branch in its repo). `ws init` (the cloning converge) lives in install.py;
+`ws sync|status` are deferred.
 Writes only local generated files and git branches in product clones; never the KB.
 """
 from __future__ import annotations
