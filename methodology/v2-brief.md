@@ -27,7 +27,7 @@ O registro de cada passo continua, mas é automático: os comandos gravam no KB.
 | Lead / AI Value Architect | Chapter Lead | escolher bets com PM e RTE, arquitetura transversal, interface com o ART, a constitution do time, decidir os degraus de adoção com números |
 | Bet Owner | 1 sênior por pod | facilitar a daily do pod, decidir o que vira bet, aprovar o spec, responder pelo resultado da bet |
 | Builder | todos, inclusive o Bet Owner | prototipar, pegar slices, orquestrar de 2 a 5 sessões de agente em paralelo, revisar PRs de agente e de colegas |
-| Harness Keeper (rotativo, a cada 2 semanas) | 1 pessoa do time | AGENTS.md, skills, linters, CI e agentes de limpeza; triagem do "o agente errou"; jardinagem do KB e sunset do que não pegou; facilita a Harness Retro |
+| Harness Keeper (rotativo, a cada 2 semanas) | 1 pessoa do time | AGENTS.md, skills, linters, CI e agentes de limpeza; triagem do "o agente errou"; jardinagem do KB e sunset do que não pegou; facilita o Harness Health semanal |
 | Flow Steward (rotativo, a cada 2 semanas) | 1 pessoa do time | facilita a daily do time, cuida da fila de review, mantém Jira e KB coerentes (drift), prepara a Demo |
 
 Regras: todo mundo passa por Harness Keeper e Flow Steward. Na primeira vez, júnior roda em par com um sênior. O Harness Keeper é o papel onde o ganho composto aparece.
@@ -38,7 +38,7 @@ Juniores (sem papel novo, só três práticas): review em par nos primeiros PRs;
 
 Recomendação sobre a dúvida "sprint de 2 semanas ou triagem semanal": nenhum dos dois por dentro.
 - Ideia vira protótipo em minutos ou horas, na hora em que aparece, e é decidida na daily do pod seguinte. Não há fila de triagem semanal.
-- A cadência de 2 semanas fica só onde o ART precisa dela: Demo + Harness Retro alinhadas à iteração do ART. Não há Betting de início de ciclo nem compromisso de sprint.
+- A cadência de 2 semanas fica só onde o ART precisa dela: a Demo alinhada à iteração do ART. O Harness Health é semanal e a Retro do time é mensal. Não há Betting de início de ciclo nem compromisso de sprint.
 - O WIP é limitado por review pendente (no máximo 2 slices em construção por pessoa), não por sprint.
 
 O fluxo de uma ideia:
@@ -61,18 +61,20 @@ Há duas trilhas, não quatro tipos de bet:
 
 Exploração é o passo de protótipo, não um tipo de bet. Superfície pública (MCP, CLI, skill, API) é Tier 2, e não um tipo. Kill é uma linha na Idea ou na Bet.
 
-## Rituais (quatro internos)
+## Rituais (cinco internos + os do ART)
 
 | Ritual | Quando | Duração | Quem | O que acontece | Saída no KB (automática) |
 |---|---|---|---|---|---|
 | Daily do time | todo dia | 10 min | todos; facilita o Flow Steward | o bot publica o status antes (merges, review parado há mais de 24h, travas); na daily só se fala de bloqueios e pedidos de review | registro curto de bloqueios e donos |
 | Daily do pod (mob com agentes) | todo dia, logo depois | 30 a 45 min (pode virar sessão de mob mais longa quando há spec para fechar) | o pod, com o agente ao vivo; facilita o Bet Owner; Domain Expert de squad quando precisar | validar ideias prototipando na hora, decidir o que vira bet, fechar spec juntos, refinar e planejar as tarefas do dia, destravar | ideias, decisões, specs (PR no KB), registro da sessão |
-| Demo + Harness Retro | a cada 2 semanas, junto com a iteração do ART | 60 min (30 + 30) | o time; facilitam o Flow Steward (Demo) e o Harness Keeper (Retro) | Demo ao vivo + painel; top erros dos agentes → regra, skill, linter ou teste; a Retro só fecha com os PRs abertos | registro da Demo, Harness Items com PR |
+| Harness Health | toda semana | 20 min | o time; facilita o Harness Keeper | erros de agente repetidos sobem a escada do harness; orçamento de contexto, skills sem uso e KB vencido; só fecha com PR por item aceito | Harness Items com PR |
+| Demo | a cada 2 semanas, com a iteração do ART | 30 min | o time; facilita o Flow Steward | demo ao vivo + painel; bets encerradas | registro da Demo |
+| Retro | mensal | 60 min | o time; facilita o Flow Steward | como o time e a metodologia estão funcionando; que passo cortar | registro da Retro; ADR se a metodologia muda |
 | PI Planning / Sense & Respond do ART | quando o ART marcar | do ART | Lead/AIVA | bets candidatas e outcomes de adoção | registro com as decisões do ART |
 
 O que sai da v1: Betting, triagem semanal de ideias, Mob Elaboration A e B, Mob Construction, Sync de bloqueios separado, preceptoria como ritual, Dia de limpeza (agora é trabalho contínuo do Harness Keeper e dos agentes de limpeza) e o eixo de arquétipos.
 
-Tempo, em conta honesta: a cerimônia pura é a daily do time (10 min × 10 dias = 1h40) mais Demo + Retro (1h), cerca de 2h40 a cada 2 semanas. A daily do pod é trabalho, não reunião: é ali que o pod prototipa, especifica e planeja com o agente, no lugar do shaping solitário, do Betting e do refinamento.
+Tempo, em conta honesta: a cerimônia pura é a daily do time (10 min × 10 dias = 1h40) mais 2 Harness Health (40 min), 1 Demo (30 min) e meia Retro mensal (30 min), cerca de 3h20 a cada 2 semanas. A daily do pod é trabalho, não reunião: é ali que o pod prototipa, especifica e planeja com o agente, no lugar do shaping solitário, do Betting e do refinamento.
 
 Transcrição: as dailies podem ser gravadas para o agente extrair ideias e decisões. A redação é determinística antes de qualquer modelo, 1:1 nunca é gravado, e fica em dry-run até o aval de LGPD. Tudo que o agente extrai entra sem `verified` até alguém confirmar.
 

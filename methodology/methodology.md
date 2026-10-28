@@ -1,7 +1,7 @@
 ---
 type: Playbook
 title: "AIDLC t0 v2: metodologia enxuta"
-description: Como o time de Inovação em IA vai da ideia ao protótipo e à produção com agentes, em fluxo contínuo sem sprint interna, com três decisões humanas registradas, quatro rituais, o KB em OKF como sistema de registro gravado pelos próprios comandos, o Jira como espelho e o toolkit t0 rodando igual no Copilot, no Claude Code e no Kiro.
+description: Como o time de Inovação em IA vai da ideia ao protótipo e à produção com agentes, em fluxo contínuo sem sprint interna, com três decisões humanas registradas, seis rituais, o KB em OKF como sistema de registro gravado pelos próprios comandos, o Jira como espelho e o toolkit t0 rodando igual no Copilot, no Claude Code e no Kiro.
 uid: methodology-aidlc-t0
 owner: role:lead
 tags: [metodologia, aidlc, okf, rituais, papeis, fluxo-continuo]
@@ -17,7 +17,7 @@ Rev 25 do living doc. A v2 sai do feedback do time de 2026-10-28, que achou a v1
 
 A ideia vira protótipo na hora, em minutos ou horas, e o pod decide na daily seguinte se ela vira bet. Bet tem apetite de até 2 semanas e passa por spec e slices; ajuste que cabe em um dia vai pela trilha rápida, sem spec. Só três decisões humanas ficam registradas: aposta, spec e degrau de adoção. O resto é review de PR ou automação.
 
-Por dentro não tem sprint. A cadência de 2 semanas aparece só na Demo + Harness Retro, alinhada ao ART, e o WIP é limitado por review pendente. São quatro rituais, com cerca de 2h40 de cerimônia pura por pessoa a cada 2 semanas. Todo comando do toolkit `t0` grava o passo no KB, e ninguém escreve ata à mão. O Jira é espelho gerado; o código mora nos repos de produto.
+Por dentro não tem sprint. A Demo a cada 2 semanas segue a iteração do ART, o Harness Health é semanal e a Retro é mensal; o WIP é limitado por review pendente. São seis rituais, com cerca de 3h20 de cerimônia pura por pessoa a cada 2 semanas. Todo comando do toolkit `t0` grava o passo no KB, e ninguém escreve ata à mão. O Jira é espelho gerado; o código mora nos repos de produto.
 
 Convenções: KB é o repositório OKF do time (`t0-kb`). O toolkit `t0` junta skills no padrão Agent Skills, o `AGENTS.md` modelo, a CLI `t0` e hooks de git e CI. Comando é uma skill, grafada `bet-spec` e chamada pelo nome em qualquer ferramenta; o que precisa ser determinístico mora na CLI (`t0 <subcomando>`). O Kiro entra só como harness de agente, com o recurso de specs dele desligado.
 
@@ -32,7 +32,7 @@ Convenções: KB é o repositório OKF do time (`t0-kb`). O toolkit `t0` junta s
 5. Atenção humana é o gargalo, e ela é medida: 1 slice = 1 PR revisável em até 15 min, WIP limitado por review pendente, primeira resposta em até 4h úteis.
 6. Erro repetido do agente vira sensor. Na segunda ocorrência sobe a escada do harness, com `AGENTS.md` por último (§7.3).
 7. Contexto é orçamento: link em vez de cópia, KB carregado por índice e busca, `AGENTS.md` com até 150 linhas, e o que não pegou é desligado.
-8. Ferramenta de agente só sai com eval, e incidente vira caso de eval antes da Retro fechar.
+8. Ferramenta de agente só sai com eval, e incidente vira caso de eval no Harness Health seguinte.
 
 ---
 
@@ -43,7 +43,7 @@ Convenções: KB é o repositório OKF do time (`t0-kb`). O toolkit `t0` junta s
 ```
  Ideia ──> Protótipo ──[aposta]──> Spec + slices ──[spec]──> Build e Verify ──> Ship ──> degraus ──[degrau]──> time → piloto → ART
  trilha rápida: Ideia ──[aposta]──> slice com "atual, esperado, o que não muda" + teste ──> Build e Verify ──> Ship
- harness, em qualquer etapa: agente erra pela 2ª vez ──> Harness Item ──> sensor, regra, skill ou AGENTS.md ──> PR fechado na Retro
+ harness, em qualquer etapa: agente erra pela 2ª vez ──> Harness Item ──> sensor, regra, skill ou AGENTS.md ──> PR aberto no Harness Health da semana
 ```
 
 1. Ideia. Qualquer pessoa registra a qualquer hora com `idea-capture`, ou ela sai da gravação de uma daily pelo `meeting-record`.
@@ -98,14 +98,14 @@ Não há compromisso de sprint, Betting de início de ciclo nem fila de triagem 
 | Lead / AI Value Architect | Chapter Lead | escolher bets com PM e RTE, arquitetura transversal, interface com o ART, a constitution do time, decidir os degraus de adoção com números |
 | Bet Owner | 1 sênior por pod | facilitar a daily do pod, decidir o que vira bet, aprovar o spec, responder pelo resultado da bet |
 | Builder | todos, inclusive o Bet Owner | prototipar, pegar slices, orquestrar de 2 a 5 sessões de agente em paralelo, revisar PRs de agente e de colegas |
-| Harness Keeper (rotativo, a cada 2 semanas) | 1 pessoa do time | AGENTS.md, skills, linters, CI e agentes de limpeza; triagem do "o agente errou"; jardinagem do KB e sunset do que não pegou; facilita a Harness Retro |
-| Flow Steward (rotativo, a cada 2 semanas) | 1 pessoa do time | facilita a daily do time, cuida da fila de review, mantém Jira e KB coerentes (drift), prepara a Demo |
+| Harness Keeper (rotativo, a cada 2 semanas) | 1 pessoa do time | AGENTS.md, skills, linters, CI e agentes de limpeza; triagem do "o agente errou"; jardinagem do KB e sunset do que não pegou; facilita o Harness Health semanal |
+| Flow Steward (rotativo, a cada 2 semanas) | 1 pessoa do time | facilita a daily do time e a Retro mensal, cuida da fila de review, mantém Jira e KB coerentes (drift), prepara a Demo |
 
 O Bet Owner também cumpre a capability Product do pod e chama um Domain Expert da squad para a daily do pod quando a bet toca o trabalho dela.
 
 ### 3.3 Rodízio
 
-Todo mundo dos pods passa por Harness Keeper e por Flow Steward. Na primeira vez, júnior roda em par com um sênior. A troca acontece no `ritual demo-retro close`, que grava a Rotation nova com `stale_after` no fim da atribuição. Ninguém segura os dois papéis ao mesmo tempo.
+Todo mundo dos pods passa por Harness Keeper e por Flow Steward. Na primeira vez, júnior roda em par com um sênior. A troca acontece no `ritual demo close`, que grava a Rotation nova com `stale_after` no fim da atribuição. Ninguém segura os dois papéis ao mesmo tempo.
 
 O Harness Keeper é o papel onde o ganho composto aparece: cada erro de agente que vira sensor deixa de custar review para o time inteiro.
 
@@ -121,20 +121,22 @@ Na pesquisa (RCT da Anthropic, jan/2026: 50% contra 67%, com a maior perda em de
 
 ## 4. Rituais
 
-### 4.1 Os quatro
+### 4.1 Os seis
 
 | Ritual | Quando | Duração | Quem | O que acontece | Saída no KB (automática) |
 |---|---|---|---|---|---|
 | Daily do time | todo dia | 10 min | todos; facilita o Flow Steward | o bot publica o status antes (merges, review parado há mais de 24h, travas); na daily só se fala de bloqueios e pedidos de review | registro curto de bloqueios e donos |
 | Daily do pod (mob com agentes) | todo dia, logo depois | 30 a 45 min (pode virar sessão de mob mais longa quando há spec para fechar) | o pod, com o agente ao vivo; facilita o Bet Owner; Domain Expert de squad quando precisar | validar ideias prototipando na hora, decidir o que vira bet, fechar spec juntos, refinar e planejar as tarefas do dia, destravar | ideias, decisões, specs (PR no KB), registro da sessão |
-| Demo + Harness Retro | a cada 2 semanas, junto com a iteração do ART | 60 min (30 + 30) | o time; facilitam o Flow Steward (Demo) e o Harness Keeper (Retro) | Demo ao vivo + painel; top erros dos agentes → regra, skill, linter ou teste; a Retro só fecha com os PRs abertos | registro da Demo, Harness Items com PR |
+| Harness Health | toda semana | 20 min | o time; facilita o Harness Keeper | erros de agente que se repetiram na semana sobem a escada do harness; olhar o orçamento de contexto (linhas de `AGENTS.md`, hooks), skills sem uso para sunset e concepts vencidos no KB; incidente vira caso de eval; só fecha com um PR aberto por item aceito | Harness Items com PR, casos de eval |
+| Demo | a cada 2 semanas, junto com a iteração do ART | 30 min | o time; facilita o Flow Steward | demo ao vivo do que foi pro ar + painel de fluxo e adoção; bets encerradas | registro da Demo, Bets `shipped` ou `killed`, rodízio novo |
+| Retro | uma vez por mês | 60 min | o time; facilita o Flow Steward | como o time e a própria metodologia estão funcionando: o que atrapalha, que passo de processo cortar, o que mudar nas dailies e nos papéis | registro da Retro; ADR quando a metodologia muda |
 | PI Planning / Sense & Respond do ART | quando o ART marcar | do ART | Lead/AIVA | bets candidatas e outcomes de adoção | registro com as decisões do ART |
 
-Os três rituais internos abrem e fecham com `ritual daily-time|daily-pod|demo-retro open|close`. O `open` monta a pauta a partir do KB; o `close` grava o Ritual Record com decisões e donos, roda o `meeting-record` se houve gravação e abre os PRs de decisão que saíram dali. O registro do PI Planning e do Sense & Respond sai do `meeting-record` sobre a pauta ou a gravação, se o ART permitir. Status quem dá é o bot, e ritual nenhum serve para isso.
+Os cinco rituais internos abrem e fecham com `ritual daily-time|daily-pod|harness-health|demo|retro open|close`. O `open` monta a pauta a partir do KB; o `close` grava o Ritual Record com decisões e donos, roda o `meeting-record` se houve gravação e abre os PRs de decisão que saíram dali. O registro do PI Planning e do Sense & Respond sai do `meeting-record` sobre a pauta ou a gravação, se o ART permitir. Status quem dá é o bot, e ritual nenhum serve para isso.
 
 ### 4.2 Conta de tempo honesta
 
-A cerimônia pura é a daily do time (10 min × 10 dias = 1h40) mais a Demo + Retro (1h): cerca de 2h40 a cada 2 semanas. O Lead soma o PI Planning e o Sense & Respond, no ritmo do ART.
+A cerimônia pura, a cada 2 semanas, é a daily do time (10 min × 10 dias = 1h40), dois Harness Health (2 × 20 = 40 min), uma Demo (30 min) e meia Retro mensal (30 min): cerca de 3h20. O Lead soma o PI Planning e o Sense & Respond, no ritmo do ART.
 
 A daily do pod conta como trabalho. É ali que o pod prototipa, especifica e planeja com o agente, no lugar do shaping solitário, do Betting e do refinamento.
 
@@ -276,7 +278,7 @@ Vale para skills, MCPs, agentes e o próprio toolkit.
 - `pass@1` quando um resultado bom basta; `pass^3` para agente que a squad usa sem olhar. O `product.md` declara qual.
 - Grader determinístico sempre que der; juiz LLM por dimensão, com opção "não sei"; humano só em amostra. Avalia-se o resultado.
 - Upgrade de modelo, mudança de prompt ou de skill só entra se a regressão fica igual ou melhor. O Bet Owner do pod dono do produto assina, e `t0 eval run` registra.
-- Incidente ou defeito escapado vira caso de eval (`t0 eval add`) antes da Retro fechar. Em superfície pública, os primeiros casos saem junto com o spec.
+- Incidente ou defeito escapado vira caso de eval (`t0 eval add`) no Harness Health seguinte. Em superfície pública, os primeiros casos saem junto com o spec.
 - A infra de eval fica com o pod PACO. O Eval Suite no KB aponta para `evals/` no repo e guarda o último resultado.
 - O toolkit segue a mesma regra, com goldens de spec e slice e a mesma skill rodando nas três ferramentas.
 
@@ -330,14 +332,14 @@ SAFe por fora, builder pods por dentro. O AI-Native SAFe pede outcomes no PI em 
 | AI-Native Team (3 a 7 pessoas) | 3 pods + Lead; o segundo revisor de Tier 2 pode vir de outro pod |
 | Epic / tema | Idea promovida e outcome de PI |
 | Feature / Story | Bet / Slice, espelhadas pelo `bet-sync` |
-| Iteração (2 semanas) | fluxo contínuo por dentro; Demo + Harness Retro no fim de cada iteração do ART |
+| Iteração (2 semanas) | fluxo contínuo por dentro; Demo no fim de cada iteração do ART |
 | PI Planning / PI Outcome Planning | compromisso com degraus de adoção, pisos de eval, SLO de review e DORA por produto; bets candidatas com apetite e risco entram como meio |
 | Sense & Respond | registro da Demo e snapshot da quinzena como insumo; decisões do ART voltam como ADR ou Idea |
 | Capacidades Product, Builder, Domain Expert, AI | Bet Owner; todo mundo; dev de squad chamado para a daily do pod; agentes com as skills do toolkit |
 | AI Value Architect | o Lead (Chapter Lead) acumula: leva adoção, valor realizado e lacunas de eval ao ART e decide os degraus |
 | Capacidade / pontos | throughput de slices e cycle time; 1 ponto fixo por slice se exigirem |
 
-O SAFe descreve o AIVA como coaching de adoção em nível de ART. O time juntou o papel com o Lead para não criar mais um papel fixo num time de 10, e o custo cai na agenda do Lead. Se o ART rodar SAFe clássico, a Demo alimenta a System Demo, a Harness Retro alimenta o I&A, e o PI Planning recebe bets candidatas além dos outcomes.
+O SAFe descreve o AIVA como coaching de adoção em nível de ART. O time juntou o papel com o Lead para não criar mais um papel fixo num time de 10, e o custo cai na agenda do Lead. Se o ART rodar SAFe clássico, a Demo alimenta a System Demo, as Retros mensais e o Harness Health alimentam o I&A, e o PI Planning recebe bets candidatas além dos outcomes.
 
 A interface volta à mesa se houver mais de 3 pods no mesmo produto, se a BU exigir pontos por PI, se o ART pedir a cadência dele por dentro ou se a agenda de Lead/AIVA estourar.
 
@@ -347,7 +349,7 @@ A interface volta à mesa se houver mais de 3 pods no mesmo produto, se a BU exi
 
 Dias 0 a 30, um pod piloto (provavelmente Dev Tooling): `t0-kb` com profile, este documento, templates de bet e de slice da trilha rápida e `kb check`; toolkit v0 com a superfície da §11, hooks de git e gates de CI, com `jira sync` só na direção KB → Jira; `docs/agents/issue-tracker.md` nos repos do piloto, confirmando os nomes das ferramentas no MCP do Atlassian do banco; status do bot antes da daily; transcrição em dry-run. Sai quando houver 3 ideias prototipadas e decididas, 1 bet e 2 itens da trilha rápida em produção, 100% das decisões com `verified`, drift zero na Demo e o pod achando o fluxo mais leve que a v1.
 
-Dias 31 a 60, os três pods: rodízio rodando, com juniores em par na primeira vez; `jira sync` completo com reconcile noturno; agente de review obrigatório antes do humano e `harness/trust.md` contando; primeira Retro fechando com PRs; primeira suíte de eval (20 casos) e primeira ferramenta tentando o degrau 1 → 2; painel com ideia → protótipo, ideia → produção, DORA e adoção do próprio time. Sai com 1 ferramenta no degrau 2 com números e a cerimônia medida contra as 2h40 da §4.2.
+Dias 31 a 60, os três pods: rodízio rodando, com juniores em par na primeira vez; `jira sync` completo com reconcile noturno; agente de review obrigatório antes do humano e `harness/trust.md` contando; primeiros Harness Health fechando com PRs e primeira Retro mensal; primeira suíte de eval (20 casos) e primeira ferramenta tentando o degrau 1 → 2; painel com ideia → protótipo, ideia → produção, DORA e adoção do próprio time. Sai com 1 ferramenta no degrau 2 com números e a cerimônia medida contra as 2h40 da §4.2.
 
 Dias 61 a 90, automação e governança: agentes de limpeza abrindo PRs Tier 0; transcrição ligada se o aval saiu; primeira revisão dos pisos com dados; Lead/AIVA no Sense & Respond com os snapshots; toolkit v1 empacotado para as squads, com `THIRD_PARTY_NOTICES.md` (MIT do mattpocock/skills e do pstack). Sai com o time dentro do Sense & Respond e 1 piso virando `in-force` ou revisado com motivo.
 
@@ -380,7 +382,7 @@ Cada comando é uma skill `SKILL.md`, descoberta pelas três ferramentas; quando
 | Estados e ship | CI | `t0 ci <KEY>` (In Review, Done, `verified` copiado das aprovações); no último merge, `t0 bet ship` | Slice; Spec `frozen`; spec vivo; Adoption Report `open`; Bet `shipped` |
 | Kill | `kb log <BET> kill "<motivo>"` | `t0 log` | Bet `killed` |
 | Decisão: degrau | `gate degrau <produto>` | `t0 adoption` contra os pisos e `t0 eval run`; recusa sem os dois | Adoption Report; Product `adoption_stage` + `verified` |
-| Rituais | `ritual daily-time\|daily-pod\|demo-retro open\|close` | `t0 digest` antes da daily do time; o close da Retro falha sem PR por item aceito e grava o rodízio | Ritual Record; Harness Item; Rotation; Metric Snapshot |
+| Rituais | `ritual daily-time\|daily-pod\|harness-health\|demo\|retro open\|close` | `t0 digest` antes da daily do time; o close do Harness Health falha sem PR por item aceito; o close da Demo grava o rodízio | Ritual Record; Harness Item; Rotation; Metric Snapshot |
 | Transcrição | `meeting-record <arquivo>` | `t0 transcript redact` antes do modelo | Transcript; Idea e ADR sem `verified` |
 | Erro repetido → sensor | `harness-fix <HI>` | escolhe o degrau da escada; PR em draft no repo certo | Harness Item `fixed` + `pr` |
 | KB | `kb find\|check\|log` | `t0 kb find`, `t0 kb check` (L0 a L2), `t0 log` | registro de passo em `steps/` |
@@ -396,7 +398,7 @@ Ficam fora do toolkit, de propósito: poteto-mode (PR pronto, force push, "proce
 - O ciclo de 2 semanas com Betting, triagem semanal e compromisso de sprint saiu. Ideia vira protótipo na hora e é decidida na daily do pod seguinte, porque a fila semanal atrasava justamente o que o agente deixa barato testar.
 - Os nove gates (G0 a G8) viraram três decisões humanas: aposta, spec e degrau. Build, review e merge ficaram com o CI, onde a prova já está no PR.
 - Os quatro tipos de bet viraram duas trilhas. Exploração passou para o protótipo, plataforma virou Tier 2 e bugfix entrou na trilha rápida.
-- Os rituais caíram de onze para quatro. O trabalho das Mobs foi para a daily do pod, e o do Dia de limpeza e do Sweeper foi para o Harness Keeper. A cerimônia pura caiu de 4h a 5h para cerca de 2h40 por quinzena.
+- Os rituais caíram de treze para seis. O trabalho das Mobs foi para a daily do pod, e o do Dia de limpeza e do Sweeper foi para o Harness Keeper e o Harness Health semanal. A Harness Retro quinzenal virou Harness Health semanal, e a Retro do time passou a ser mensal. A cerimônia pura caiu de 4h a 5h para cerca de 3h20 por quinzena.
 - Saíram o eixo de arquétipos, a regra dos 3 ciclos e as accountabilities extras (AIVA separado, Eval Owner, Plantão, Preceptor). Ficaram cinco papéis, e as salvaguardas de júnior viraram três práticas.
 - Saíram os tipos Plan, Assessment, Bugfix, Cycle Record, Accountability, PI Outcome e Contract. Plano e contrato viraram seções de spec, com menos arquivo para revisar.
 - O registro ficou automático: cada comando grava o passo no KB, e a trilha de auditoria do banco continua sem custo de cerimônia.

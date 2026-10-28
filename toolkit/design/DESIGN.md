@@ -82,6 +82,6 @@ The team found v1 bureaucratic. `methodology/v2-brief.md` is the source; these i
 - Bet lanes: `rapida` (one slice, no spec, the slice body carries "atual / esperado / não muda") and `bet`. There are no bet types. Tier 2 covers public surfaces.
 - Profile types kept: Idea, Bet, Spec (plan as an optional section), Slice, ADR, Ritual Record, Transcript, Harness Item, Product, Adoption Report, Policy, Template, Person, Role, Rotation, Workspace, Glossary Term, Step, Log, Eval Suite, Metric Snapshot. Removed: Plan, Assessment, Bugfix, Cycle Record, Accountability, PI Outcome, Contract.
 - Idea gets `prototype` fields: `verdict: segue|ajusta|mata`, `prototype_ref`, `decided_at`. Command: `t0 idea prototype <IDEA> --verdict ...`.
-- Rituals: `daily-time`, `daily-pod`, `demo-retro`, plus external `pi`. `ritual <slug> open|close` stays generic. There is no Betting closer and no archetype checks.
+- Rituals: `daily-time`, `daily-pod`, `harness-health` (weekly; close refuses without a PR per accepted Harness Item), `demo` (every 2 weeks; close records the rotation), `retro` (monthly), plus external `pi`. `ritual <slug> open|close` stays generic. There is no Betting closer and no archetype checks.
 - Roles: Lead/AIVA, Bet Owner, Builder, Harness Keeper (rotation), Flow Steward (rotation). Rotation concepts exist only for Harness Keeper and Flow Steward.
 - Pods: `dev-tooling`, `paco`, `portal-metricas`, used as product slugs in the template.
