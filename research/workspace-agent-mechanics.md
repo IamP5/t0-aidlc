@@ -106,7 +106,7 @@ Local CLI checks (fixtures: KB `CLAUDE.md` = `PELICAN-KB-CLAUDEMD`, KB skill des
 Other facts:
 - The env var can be made permanent in the `env` block of `~/.claude/settings.json`. (docs: cc-memory)
 - With the env var, Claude loads `CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/rules/*.md` and `CLAUDE.local.md` from the added dir. An `AGENTS.md` in an added dir does **not** load, even with the env var. (docs: cc-memory, "Where AGENTS.md differs")
-- Skills from `--add-dir` directories still load under `--bare` / `CLAUDE_CODE_SIMPLE`, which skips nearly everything else. (docs: cc-cli, cc-env) This is useful for lean CI or headless runs. (inferred)
+- Skills from `--add-dir` directories still load under `--bare` / `CLAUDE_CODE_SIMPLE`, which skips nearly everything else. (docs: cc-cli, cc-env) That makes them usable in lean CI or headless runs. (inferred)
 - If a skill name in an added dir clashes with a project or user skill, it gets a prefix such as `/kb:verify`. (docs: cc-skills)
 - `DirectoryAdded` hook: fires after `/add-dir` (not after `--add-dir`, which `SessionStart` covers). (docs: cc-hooks)
 - `/cd <path>` moves the session's primary directory. It loads the new dir's CLAUDE.md, settings, hooks, `.mcp.json` and skills, and **keeps** `--add-dir` / `/add-dir` directories. (docs: cc-permissions) For a cross-repo session, this means the KB stays attached when you hop between product repos. (inferred)
@@ -115,18 +115,18 @@ Other facts:
 
 ### 1.2 CLAUDE.md loading and `@path` imports
 
-- **Ancestors load at launch, and nested files load on demand.** CLAUDE.md and CLAUDE.local.md from cwd **and every parent** load at launch, concatenated root-first. Subdirectory CLAUDE.md files load the first time Claude reads or edits a file there. (docs: cc-memory) Local check: launching in `ws/repoA` loaded `ws/CLAUDE.md` (`CRANE-PARENT`) and `repoA/CLAUDE.md`. Launching in `ws/` loaded only `CRANE-PARENT`, because child repo files load lazily. (local CLI check)
-- **Import syntax.** `@path` takes relative paths (resolved from the importing file) or absolute paths. `@~/…` works (the docs example is `@~/.claude/my-project-instructions.md`). Imports can recurse up to **4 hops**. Paths with spaces need backslash escapes, and imports inside code spans or fences are ignored. (docs: cc-memory)
-- **Imports don't reduce cost.** *"Imports … don't reduce its context cost, because imported files load together with the CLAUDE.md that imports them."* Keep each CLAUDE.md under about 200 lines. (docs: cc-memory)
-- **External imports need approval.** An import that resolves outside the working dir is "external". The first interactive session shows an approval dialog. If the user declines, the imports stay disabled and the dialog does not come back. (docs: cc-memory) Local checks:
+- Ancestors load at launch, and nested files load on demand. CLAUDE.md and CLAUDE.local.md from cwd **and every parent** load at launch, concatenated root-first. Subdirectory CLAUDE.md files load the first time Claude reads or edits a file there. (docs: cc-memory) Local check: launching in `ws/repoA` loaded `ws/CLAUDE.md` (`CRANE-PARENT`) and `repoA/CLAUDE.md`. Launching in `ws/` loaded only `CRANE-PARENT`, because child repo files load lazily. (local CLI check)
+- `@path` imports take relative paths (resolved from the importing file) or absolute paths. `@~/…` works (the docs example is `@~/.claude/my-project-instructions.md`). Imports can recurse up to **4 hops**. Paths with spaces need backslash escapes, and imports inside code spans or fences are ignored. (docs: cc-memory)
+- Imports don't reduce cost: *"Imports … don't reduce its context cost, because imported files load together with the CLAUDE.md that imports them."* Keep each CLAUDE.md under about 200 lines. (docs: cc-memory)
+- External imports need approval. An import that resolves outside the working dir is "external". The first interactive session shows an approval dialog. If the user declines, the imports stay disabled and the dialog does not come back. (docs: cc-memory) Local checks:
   - `@../kb/index.md` and `@/abs/…/kb/index.md` in `repoA/CLAUDE.md` were **silently not loaded under `claude -p`**, with no warning. The result was the same even with `--add-dir ../kb`. (local CLI check)
   - `~/.claude.json` stores per-project `hasClaudeMdExternalIncludesApproved` and `hasClaudeMdExternalIncludesWarningShown` flags (124 project entries on this machine). (local CLI check)
   - **Consequence:** an `@../team-kb/index.md` line committed to each product repo works for a dev only after they approve it once per repo per machine. In fresh CI runners and cloud sessions it fails silently. (inferred)
-- **User-scope imports skip the dialog.** `~/.claude/CLAUDE.md` and `~/.claude/rules/` are trusted, so their imports load with no dialog. The exception is Cowork desktop sessions, which skip user-scope imports outside the working dir. (docs: cc-memory) A per-dev `@~/kb/index.md` line in `~/.claude/CLAUDE.md` is therefore zero-dialog, but it depends on every dev cloning the KB to the same path. (inferred)
-- **Rules via symlink.** A `.claude/rules/` symlink can point at a shared folder. Targets outside the working dir count as external imports (same approval), and once approved only the rules **without** `paths:` load. (docs: cc-memory)
-- **Rules scoped by path.** `.claude/rules/*.md` with `paths:` frontmatter load only when a matching file is read or edited. They are summarized away on compaction. (docs: cc-memory, cc-context)
-- **Managed CLAUDE.md.** A managed file (`/Library/Application Support/ClaudeCode/CLAUDE.md`) or the `claudeMd` key in managed settings applies to every user and cannot be excluded. (docs: cc-memory) This is a candidate for a 5-line org-wide pointer such as "the KB lives at …; read its index first". (inferred)
-- **AGENTS.md.** Claude Code ≥2.1.277 reads `AGENTS.md` when no CLAUDE.md exists in cwd or its ancestors. The `instructionFiles` option `claude-md-and-agents-md` reads both. (docs: cc-memory) Product repos that also serve Codex and Copilot can keep `AGENTS.md` as the single file. (inferred)
+- User-scope imports skip the dialog. `~/.claude/CLAUDE.md` and `~/.claude/rules/` are trusted, so their imports load with no dialog. The exception is Cowork desktop sessions, which skip user-scope imports outside the working dir. (docs: cc-memory) A per-dev `@~/kb/index.md` line in `~/.claude/CLAUDE.md` is therefore zero-dialog, but it depends on every dev cloning the KB to the same path. (inferred)
+- A `.claude/rules/` symlink can point at a shared folder. Targets outside the working dir count as external imports (same approval), and once approved only the rules **without** `paths:` load. (docs: cc-memory)
+- `.claude/rules/*.md` with `paths:` frontmatter load only when a matching file is read or edited. They are summarized away on compaction. (docs: cc-memory, cc-context)
+- A managed CLAUDE.md file (`/Library/Application Support/ClaudeCode/CLAUDE.md`) or the `claudeMd` key in managed settings applies to every user and cannot be excluded. (docs: cc-memory) This is a candidate for a 5-line org-wide pointer such as "the KB lives at …; read its index first". (inferred)
+- Claude Code ≥2.1.277 reads `AGENTS.md` when no CLAUDE.md exists in cwd or its ancestors. The `instructionFiles` option `claude-md-and-agents-md` reads both. (docs: cc-memory) Product repos that also serve Codex and Copilot can keep `AGENTS.md` as the single file. (inferred)
 
 ### 1.3 Project memory vs user memory
 
@@ -143,33 +143,33 @@ Sources: (docs: cc-memory)
 ### 1.4 Plugins: SessionStart `additionalContext` and `userConfig`
 
 - **`SessionStart` hook.** Matchers are `startup`, `resume`, `clear`, `compact` and `fork`. Hooks return `hookSpecificOutput.additionalContext`, and plain stdout is also added as context. The text arrives as a system reminder before the first prompt, and Claude's first response waits for the hooks. (docs: cc-hooks)
-- **Size cap: 10,000 characters per value.** Anything longer is written to a file, and Claude gets the path plus a 2,000-char preview, with no instruction to read it. There is no setting to raise the cap. (docs: cc-hooks)
-- **Compaction.** Hook context added earlier is summarized away on compaction, but a `SessionStart` hook matching `compact` re-runs and re-injects. (docs: cc-context) **Use `startup|resume|clear|compact`.** (inferred)
-- **Subagents.** `SubagentStart` can also return `additionalContext`. (docs: cc-hooks) Built-in Explore and Plan start **without** CLAUDE.md, and custom subagents load it unless `omitClaudeMd: true`. (docs: cc-subagents) A `SubagentStart` hook is the way to give KB context to Explore and Plan. (inferred)
-- **Mid-session injection.** `UserPromptSubmit` can add `additionalContext` per prompt. (docs: cc-hooks) It could carry a "current bet" pointer when the prompt mentions a Jira key. (inferred)
-- **No MCP from SessionStart at launch.** `SessionStart` at launch fires before MCP servers connect, so `mcp_tool` hooks are skipped there. Use `command` hooks. (docs: cc-hooks)
+- The size cap is **10,000 characters per value**. Anything longer is written to a file, and Claude gets the path plus a 2,000-char preview, with no instruction to read it. There is no setting to raise the cap. (docs: cc-hooks)
+- Hook context added earlier is summarized away on compaction, but a `SessionStart` hook matching `compact` re-runs and re-injects. (docs: cc-context) **Use `startup|resume|clear|compact`.** (inferred)
+- `SubagentStart` can also return `additionalContext`. (docs: cc-hooks) Built-in Explore and Plan start **without** CLAUDE.md, and custom subagents load it unless `omitClaudeMd: true`. (docs: cc-subagents) A `SubagentStart` hook is the way to give KB context to Explore and Plan. (inferred)
+- For mid-session injection, `UserPromptSubmit` can add `additionalContext` per prompt. (docs: cc-hooks) It could carry a "current bet" pointer when the prompt mentions a Jira key. (inferred)
+- `SessionStart` at launch fires before MCP servers connect, so `mcp_tool` hooks are skipped there. Use `command` hooks. (docs: cc-hooks)
 - **`userConfig` types: `string`, `number`, `boolean`, `directory`, `file`.** `directory` is the right type for "path to your KB clone". The user is prompted when the plugin is enabled, and the value is also editable in `/config`. Non-sensitive values are stored in `pluginConfigs` in user settings. (docs: cc-plugin-ref, cc-settings-ref)
-- **How the value reaches each component.** It is exported to hooks as `CLAUDE_PLUGIN_OPTION_<KEY>` and substituted as `${user_config.KEY}` in MCP config, LSP config, exec-form hook `args`, and skill and agent content. Shell-form hooks must read the env var instead, because `${user_config.*}` is rejected in shell-form commands. (docs: cc-plugin-ref)
-- **Local check (plugin loaded via `--plugin-dir`).** The plugin declared `userConfig.kb_path` (`type: directory`) and a SessionStart hook that prints `$CLAUDE_PLUGIN_OPTION_KB_PATH` and the first 2,000 chars of `$KB/index.md`:
+- The value is exported to hooks as `CLAUDE_PLUGIN_OPTION_<KEY>` and substituted as `${user_config.KEY}` in MCP config, LSP config, exec-form hook `args`, and skill and agent content. Shell-form hooks must read the env var instead, because `${user_config.*}` is rejected in shell-form commands. (docs: cc-plugin-ref)
+- Local check, with the plugin loaded via `--plugin-dir`. The plugin declared `userConfig.kb_path` (`type: directory`) and a SessionStart hook that prints `$CLAUDE_PLUGIN_OPTION_KB_PATH` and the first 2,000 chars of `$KB/index.md`:
   - **With nothing saved, the hook saw `unset`.** The `default` in the manifest was **not** applied under `-p`. (local CLI check) The plugin must handle a missing value (fallback paths, or a message telling the user to run `/config`). (inferred)
   - **With the value saved, injection worked.** After `--settings '{"pluginConfigs":{"kbplug@inline":{"options":{"kb_path":"…"}}}}'` (plain `"kbplug"` also worked), the hook got the path and the KB `index.md` codeword reached context. (local CLI check)
   - `${user_config.kb_path}` in a **skill `description`** was **not** substituted. The listing showed the literal placeholder. Body substitution at invocation (per docs) was not verified. (local CLI check) Don't rely on user_config inside descriptions. (inferred)
-- **Org rollout.** Plugins can be pre-installed and required for everyone through managed settings. (docs: cc-large → plugins/org) `enabledPlugins` and `extraKnownMarketplaces` are the two settings keys honored even from `--add-dir` dirs. (docs: cc-permissions)
+- For org rollout, plugins can be pre-installed and required for everyone through managed settings. (docs: cc-large → plugins/org) `enabledPlugins` and `extraKnownMarketplaces` are the two settings keys honored even from `--add-dir` dirs. (docs: cc-permissions)
 
 ### 1.5 MCP server exposing the KB
 
-- **Resources.** Resources appear in `@` autocomplete as `@server:protocol://path`, are fetched as attachments when referenced, and Claude Code auto-provides list and read tools for them. (docs: cc-mcp)
-- **Tool search is on by default.** Only tool names and **server instructions** load at start, and tool definitions are deferred. Server instructions and the descriptions of upfront tools are cut at **4,096 chars**. (docs: cc-mcp)
-- **Server instructions as the context channel.** A "kb" MCP server can put a short "read kb_index first; bets live under …" text in its instructions, so it is present every session at near-zero cost. (inferred)
-- **What MCP adds beyond files.** Search (grep or embedding), `get_bet(jira_key)`, write-backs (append to `log.md`, create an ADR) with schema validation, and access from Claude.ai, Desktop, the web and CI where no local clone exists. (inferred) Anthropic's own large-codebase guide recommends exposing an existing code-search or RAG index as MCP. (docs: cc-large)
-- **Packaging.** A plugin can ship the MCP server and pass the KB path in through `${user_config.kb_path}`. (docs: cc-plugin-ref)
-- **Off-the-shelf option.** The generic filesystem MCP works, but it duplicates Read/Grep and adds nothing over `--add-dir` locally. (inferred)
+- Resources appear in `@` autocomplete as `@server:protocol://path`, are fetched as attachments when referenced, and Claude Code auto-provides list and read tools for them. (docs: cc-mcp)
+- Tool search is on by default. Only tool names and **server instructions** load at start, and tool definitions are deferred. Server instructions and the descriptions of upfront tools are cut at **4,096 chars**. (docs: cc-mcp)
+- A "kb" MCP server can put a short "read kb_index first; bets live under …" text in its instructions, so it is present every session at near-zero cost. (inferred)
+- What MCP adds beyond files: search (grep or embedding), `get_bet(jira_key)`, write-backs (append to `log.md`, create an ADR) with schema validation, and access from Claude.ai, Desktop, the web and CI where no local clone exists. (inferred) Anthropic's own large-codebase guide recommends exposing an existing code-search or RAG index as MCP. (docs: cc-large)
+- A plugin can ship the MCP server and pass the KB path in through `${user_config.kb_path}`. (docs: cc-plugin-ref)
+- The generic filesystem MCP works, but it duplicates Read/Grep and adds nothing over `--add-dir` locally. (inferred)
 
 ### 1.6 Worktrees and parent-folder launches
 
-- **Worktrees are per repo.** `claude -w <name>` creates `.claude/worktrees/<name>/` in **one** git repo, branched from the default branch unless `worktree.baseRef: "head"`. (docs: cc-worktrees) Launched from a non-git parent folder it fails with *"Can only use --worktree in a git repository … Configure a WorktreeCreate hook to use --worktree with other VCS systems."* (local CLI check) A multi-repo "bet worktree" therefore needs either a `WorktreeCreate` hook that runs `git worktree add` in each product repo, or a manifest tool. (inferred)
-- **Worktrees and `--add-dir`.** Inside a worktree the working dir is the worktree root, so a per-area `additionalDirectories` from the parent settings no longer applies. (docs: cc-large) `--add-dir` directories survive `/cd` and EnterWorktree moves. (docs: cc-permissions) Project-scope plugins installed from the main checkout also load in its worktrees. (docs: cc-worktrees)
-- **Path-scoped skills don't follow added worktrees.** Skills with `paths:` do not activate for files in a sibling worktree added with `/add-dir`. (docs: cc-skills)
+- Worktrees are per repo. `claude -w <name>` creates `.claude/worktrees/<name>/` in **one** git repo, branched from the default branch unless `worktree.baseRef: "head"`. (docs: cc-worktrees) Launched from a non-git parent folder it fails with *"Can only use --worktree in a git repository … Configure a WorktreeCreate hook to use --worktree with other VCS systems."* (local CLI check) A multi-repo "bet worktree" therefore needs either a `WorktreeCreate` hook that runs `git worktree add` in each product repo, or a manifest tool. (inferred)
+- Worktrees and `--add-dir`: inside a worktree the working dir is the worktree root, so a per-area `additionalDirectories` from the parent settings no longer applies. (docs: cc-large) `--add-dir` directories survive `/cd` and EnterWorktree moves. (docs: cc-permissions) Project-scope plugins installed from the main checkout also load in its worktrees. (docs: cc-worktrees)
+- Skills with `paths:` do not activate for files in a sibling worktree added with `/add-dir`. (docs: cc-skills)
 - **Parent folder with several clones** (`~/work/<product>/{kb, svc-a, svc-b, …}`):
   - It works for **CLAUDE.md**: a parent `CLAUDE.md` loads as an ancestor in every child session, and imports from the parent into `kb/` are "inside the working dir" only when launched from the parent. (docs: cc-memory; local CLI check for ancestor loading)
   - **`.claude/settings.json` has no parent fallback.** Hooks and settings load only from the cwd's `.claude/`. A session launched in the parent misses each repo's settings and hooks, and one launched in a child misses the parent's. (docs: cc-permissions, cc-large)
@@ -206,7 +206,7 @@ Context-quality rationale: Anthropic describes an "attention budget" and recomme
    Keep the total under 10,000 chars. Re-run on `compact`.
 2. **On demand via skills.** `kb-read`, `kb-write`, `ritual-<name>`, `spec`, `adr` and similar. Skill descriptions are always listed (within the 1% budget) and bodies load only when invoked. Skills instruct "read `index.md` first, then follow links", the OKF progressive-disclosure path.
 3. **On demand via Read/Grep.** This needs file access to the KB: `--add-dir`, user-scope `additionalDirectories`, or `Read(...)` allow rules. Reads outside working and additional dirs prompt. (docs: cc-permissions table "Read-only … No [prompt], within the working directory and additional directories")
-4. **Path-scoped rules in product repos** for code conventions only. The KB is not a code-path concern.
+4. **Path-scoped rules in product repos**, used for code conventions only, since the KB is not tied to code paths.
 5. **Never** `@import` the whole bundle, and never inline more than the index in CLAUDE.md.
 
 ---
@@ -223,7 +223,7 @@ Context-quality rationale: Anthropic describes an "attention budget" and recomme
 | **"Meta-repo" pattern** | A hub repo with an AGENTS.md entry point plus a repo registry, with agents launched from the hub | hub AGENTS.md | [seylox blog](https://seylox.github.io/2026/03/05/blog-agents-meta-repo-pattern.html) (community) |
 | **Anthropic guidance** | Monorepo: start at the root for cross-package tasks and layer CLAUDE.md. Polyrepo or siblings: `--add-dir` or `additionalDirectories`. When layering stops scaling, move conventions into skills, centrally owned plugins (managed install) and MCP. Use a SessionStart hook to point people at the right plugin. Plan cross-package changes in plan mode, because the plan file is re-injected after compaction. | CLAUDE.md layering | (docs: cc-large) |
 
-The common lesson (inferred) is that every tool's per-root instruction discovery is fragile in multi-root setups. Teams that need "always" context put it in a **user/org/plugin-scoped** channel or a **hub** launch point, not in per-root files.
+The common lesson (inferred) is that every tool's per-root instruction discovery is fragile in multi-root setups. Teams that need "always" context put it in a **user/org/plugin-scoped** channel or a **hub** launch point instead of per-root files.
 
 ---
 

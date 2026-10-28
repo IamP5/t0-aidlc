@@ -6,7 +6,7 @@ Every module's internals are `_private`. `t0/__init__.py` exports only `KB`, `Pl
 |---|---|---|---|
 | `okf/document.py` | Reference parse semantics, `BundlePath`, `Actor`, `Instant` grammar | `parse`, `BundlePath`, `Actor`, `Instant` | yes |
 | `profile/spec.py` | Shapes of the one table: `Field`, `TypeSpec`, `StateMachine`, `GateSpec`, `BetTypeSpec`, `Lane`, `CheckId`, `EventKind` | types only | yes |
-| `profile/table.py` | **THE table**: `TYPES`, `GATES`, `BET_TYPES`, `PROFILE_VERSION`, `REGISTRY` | `REGISTRY` | yes (data) |
+| `profile/table.py` | The single table: `TYPES`, `GATES`, `BET_TYPES`, `PROFILE_VERSION`, `REGISTRY` | `REGISTRY` | yes (data) |
 | `view.py` | Events, fold, derived keys, anomalies, `Concept` accessor | `View`, `Concept`, `fold`, `Event` | yes |
 | `check.py` | Conformance L0/L1/L2 + lane rules + secret scan | `check(view, docs, level, lane, changed) -> Report` | yes |
 | `gates.py` | Gate check implementations (one per `CheckId`) + approver rules | `evaluate(view, gate, target) -> GateDecision` | yes |
@@ -20,7 +20,7 @@ Every module's internals are `_private`. `t0/__init__.py` exports only `KB`, `Pl
 | `rituals.py` | Ritual open (agenda from concept inputs) and closers table | `open_agenda`, `close`, `CLOSERS` | yes (plans) |
 | `reports.py` | digest, cycle, adoption, sweep, review-queue, budget, trace | `report(view, kind, sources) -> Plan \| str` | yes |
 | `gen.py` | All generated per-tool files, profile.md, templates, eval mocks, skill header/footer | `TARGETS`, `generate`, `check_drift` | yes (renders to memory) |
-| `kb.py` | **Facade**: opens a view source, routes every operation | `KB` | orchestrates |
+| `kb.py` | Facade: opens a view source, routes every operation | `KB` | orchestrates |
 | `hooks.py` | One entrypoint for every agent hook and git hook; git guard | `run_hook(name, stdin) -> HookReply` | thin |
 | `mcp_server.py` | stdio server `t0-kb`, 6 tools, instructions ≤1500 chars | `serve(kb_dir)` | thin |
 | `cli.py` | argparse command table; applies Plans; `--dry-run`, `--json` | `main` | thin |

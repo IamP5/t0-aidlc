@@ -37,12 +37,12 @@ Dez regras. Elas decidem o que o processo não cobre. A coluna "mudou" diz o que
 | P4 | **Lotes pequenos** | 1 slice = 1 PR revisável em ≤15 min. Bet que não cabe no apetite vira duas. | Mantido. |
 | P5 | **Erro repetido do agente vira sensor, não prompt** | Na segunda ocorrência do mesmo erro, sobe a escada: lint/teste/hook de git/CI → regra de área → skill → `AGENTS.md` por último (§6.3). | **Mudou.** O draft dizia "todo erro → regra no CLAUDE.md", que é a receita das 8.500 instruções da Anthropic (delta 16). |
 | P6 | **Atenção humana é o gargalo, e ela é medida** | WIP limitado por review pendente, não por tarefa aberta. PR e PR de gate esperando review têm prioridade sobre slice novo, com SLO de 4h úteis. | Ganhou SLO medível (§7). |
-| P7 | **Visibilidade por telemetria** | Se alguém precisa perguntar o status, falta automação, não reunião. Ritual síncrono só decide e alinha; nunca reporta. | Mantido. |
-| P8 | **Passo e decisão registrados, ou não aconteceram** | Todo comando do ciclo e todo ritual grava no KB, e o registro sai do pack, não da boa vontade de alguém. Gate é PR no KB; decisão vai para ADR (difícil de reverter) ou para o `log.md` da bet. | **Mudou de escopo.** Antes aceitava "thread no canal". Canal é efêmero e o agente não lê. Agora cobre todo passo, não só decisão. |
+| P7 | **Visibilidade por telemetria** | Se alguém precisa perguntar o status, o que falta é automação, e uma reunião não resolve isso. Ritual síncrono só decide e alinha; nunca reporta. | Mantido. |
+| P8 | **Passo e decisão registrados, ou não aconteceram** | Todo comando do ciclo e todo ritual grava no KB, e quem grava o registro é o pack, sem depender da boa vontade de ninguém. Gate é PR no KB; decisão vai para ADR (difícil de reverter) ou para o `log.md` da bet. | **Mudou de escopo.** Antes aceitava "thread no canal". Canal é efêmero e o agente não lê. Agora cobre todo passo, não só decisão. |
 | P9 | **Contexto é orçamento; geral antes de específico** | Antes de criar skill de nicho, melhora o contexto geral. Link em vez de cópia. O KB entra no contexto por índice e busca, nunca despejado inteiro. O Sweeper desliga o que não pegou. | Funde "geral antes de específico" com engenharia de contexto. O KB vai estar em toda sessão; sem orçamento, apodrece o contexto. |
 | P10 | **Ferramenta de agente só sai com eval** | Skill, MCP ou agente que o time entrega tem suíte de regressão antes do piloto, e incidente vira caso de eval antes da retro fechar. | **Novo** (deltas 8 e 18). O time vende ferramenta de IA; sem eval, não dá para saber se um upgrade de modelo quebrou alguma coisa. |
 
-Dois princípios do draft saíram: "spec antes de código" (virou P3) e "repo como registro" (virou P2). Nenhum princípio sobre custo de token: custo é métrica (§7), não princípio. A formação de quem supervisiona (debug sem delegar, explain-back) não virou princípio porque já tem regra própria e mensurável (§3.4).
+Dois princípios do draft saíram: "spec antes de código" (virou P3) e "repo como registro" (virou P2). Custo de token não virou princípio porque já é tratado como métrica (§7). A formação de quem supervisiona (debug sem delegar, explain-back) não virou princípio porque já tem regra própria e mensurável (§3.4).
 
 ---
 
@@ -70,7 +70,7 @@ Dois princípios do draft saíram: "spec antes de código" (virou P3) e "repo co
 | **Ship** | Saiu? O spec vivo do produto e o contrato estão atualizados? | Bet Owner + Grower | `bet.md` encerrada na Demo; Adoption Report aberto |
 | **Degraus** (do produto, fora da bet) | Quem está usando? O degrau abriu? | Grower + AIVA + Eval Owner | Adoption Report (`passed`), Product com `adoption_stage` |
 
-**Bolt.** Um bolt é um bloco planejado de 1 a 3 slices com **dono, DoD e hipótese de confiança** ("ao fim deste bolt, X funciona; risco Y"). Mora como seção do `plan.md`, não como arquivo (menos markdown para revisar). É a unidade que o Sync de bloqueios olha.
+**Bolt.** Um bolt é um bloco planejado de 1 a 3 slices com **dono, DoD e hipótese de confiança** ("ao fim deste bolt, X funciona; risco Y"). Mora como seção do `plan.md`, sem arquivo próprio, para sobrar menos markdown para revisar. É a unidade que o Sync de bloqueios olha.
 
 ### 2.2 Gates: quem aprova, o que prova
 
@@ -115,16 +115,16 @@ Quatro tipos. O tipo entra no `bet.md` como `bet_type`, decide o caminho, e o pa
 
 Regras de transição:
 
-- Exploratória fecha no G6 pelo veredito: `go` → `state: shipped` e nasce uma Bet de entrega `proposed` com `relations.derived_from`; `kill` → `state: killed` com o aprendizado; `needs-clarification` → `state: extended`, uma vez só. O protótipo é anexo do spec, não base de código.
+- Exploratória fecha no G6 pelo veredito: `go` → `state: shipped` e nasce uma Bet de entrega `proposed` com `relations.derived_from`; `kill` → `state: killed` com o aprendizado; `needs-clarification` → `state: extended`, uma vez só. O protótipo fica anexado ao spec e nunca vira base de código.
 - Bugfix que descobre que precisa de design vira bet de entrega. O agente abre o `bet.md` novo e para.
-- Entrega que vai expor MCP, CLI ou skill às squads **é** plataforma, mesmo pequena. Decide a superfície pública, não o tamanho.
-- **Kill é resultado, não fracasso.** O Sweeper usa o registro de bets mortas para a mesma ideia não voltar sem fato novo.
+- Entrega que vai expor MCP, CLI ou skill às squads **é** plataforma, mesmo pequena. O critério é a superfície pública; o tamanho não entra na conta.
+- Bet morta (kill) conta como resultado da bet. O Sweeper usa o registro de bets mortas para a mesma ideia não voltar sem fato novo.
 
 ---
 
 ## 3. Papéis em dois eixos
 
-Dois eixos que não se misturam:
+Os dois eixos são independentes:
 
 - **Arquétipo** = modo de trabalho da quinzena. Responde "como estou trabalhando agora". Muda com o estágio do produto. Ninguém "é" Prototyper; alguém "está" Prototyper nesta bet.
 - **Accountability** = quem responde se der errado. Tem nome, prazo e um concept `Accountability` no KB.
@@ -143,7 +143,7 @@ Os cinco do Boris Cherny, adaptados. A maioria das pessoas cobre 2 ou 3.
 | **Sweeper** | Desliga o que está abaixo do piso, poda `AGENTS.md` e regras, cuida do jardim do KB (`stale_after` vencido, drift do Jira), reporta o orçamento de contexto | Catálogo cresce mais rápido que o uso; `AGENTS.md` passa de 150 linhas |
 | **Maintainer** | Mantém rápido e confiável o que as squads já usam; dono da suíte de regressão | Incidente e chamado repetidos |
 
-**Cobertura por pod, conforme o estágio do produto (regra, não sugestão):**
+**Cobertura por pod, conforme o estágio do produto (obrigatória):**
 
 | Pod / produto | Estágio hoje | Mistura mínima no ciclo |
 |---|---|---|
@@ -178,16 +178,16 @@ No Betting, cada pessoa declara 1 arquétipo principal e até 1 secundário, gra
 
 ### 3.4 Salvaguardas para juniores
 
-A pesquisa (RCT da Anthropic, jan/2026: 50% vs. 67%, maior perda em debugging) é clara: delegação total e "debug iterativo com IA" destroem o aprendizado; "gerar e depois compreender" preserva. Daí:
+Na pesquisa (RCT da Anthropic, jan/2026: 50% vs. 67%, maior perda em debugging), delegação total e "debug iterativo com IA" destroem o aprendizado, e "gerar e depois compreender" o preserva. Por isso:
 
-- **Preceptor nomeado**, ≤3 juniores por sênior, dentro do pod. *Proposta:* a razão 3:1 é nossa; a fonte citada na pesquisa não foi verificada. O preceptor faz o review humano dos PRs Tier 1 e 2 do júnior nos 2 primeiros ciclos.
-- **Júnior nunca é aprovador único de Tier 1 ou acima.** Pode ser segundo revisor.
-- **Júnior como Bet Owner:** de bugfix e de plataforma Tier 0/1 desde o 1º ciclo; de entrega a partir do 3º ciclo, com o preceptor co-aprovando o G2.
-- **Explain-back obrigatório**: todo PR Tier 1 ou 2 de júnior leva uma seção "Em minhas palavras" (o que o PR faz e por quê, sem colar a explicação do agente). Em Tier 2, obrigatório para todo mundo.
-- **Primeiro debug é da pessoa**: em bug atribuído a júnior, o agente explica e instrumenta; quem escreve o fix é a pessoa (`diagnose --tutor`).
-- **Um slice em modo tutor por ciclo**: perguntas conceituais liberadas, geração de código não. Escolhido no Betting, registrado no slice como `mode: tutor`. Opcional para sênior.
-- **Plantão em dupla** com o preceptor.
-- **Preceptoria 1:1 não é transcrita** (§4.4). Mede-se participação nessas práticas, nunca nota, e os dados individuais só o preceptor e a própria pessoa veem (§7).
+- Preceptor nomeado, ≤3 juniores por sênior, dentro do pod. *Proposta:* a razão 3:1 é nossa; a fonte citada na pesquisa não foi verificada. O preceptor faz o review humano dos PRs Tier 1 e 2 do júnior nos 2 primeiros ciclos.
+- Júnior nunca é aprovador único de Tier 1 ou acima. Pode ser segundo revisor.
+- Júnior pode ser Bet Owner de bugfix e de plataforma Tier 0/1 desde o 1º ciclo, e de entrega a partir do 3º ciclo, com o preceptor co-aprovando o G2.
+- O explain-back é obrigatório: todo PR Tier 1 ou 2 de júnior leva uma seção "Em minhas palavras" (o que o PR faz e por quê, sem colar a explicação do agente). Em Tier 2, vale para todo mundo.
+- O primeiro debug é da pessoa: em bug atribuído a júnior, o agente explica e instrumenta, e quem escreve o fix é a pessoa (`diagnose --tutor`).
+- Um slice por ciclo roda em modo tutor, com perguntas conceituais liberadas e geração de código bloqueada. É escolhido no Betting e registrado no slice como `mode: tutor`. Opcional para sênior.
+- Júnior faz plantão em dupla com o preceptor.
+- A preceptoria 1:1 não é transcrita (§4.4). Mede-se participação nessas práticas, nunca nota, e os dados individuais só o preceptor e a própria pessoa veem (§7).
 
 ### 3.5 Anti-"arquétipo vira cargo"
 
@@ -208,7 +208,7 @@ Todo ritual segue Align / Sense / Respond do AI-Native SAFe, é um concept `Ritu
 - `ritual <slug> open` chama `t0 ritual <slug> open`, que lê as `inputs` declaradas no concept e monta a pauta.
 - `ritual <slug> close` grava o Ritual Record em `cycles/<C>/rituals/<data>-<slug>.md` (decisões, donos, prazos, links), roda `meeting-record` quando o ritual é gravado (§4.4) e abre os PRs de gate que o ritual decidiu.
 
-Ritual sem Ritual Record não aconteceu (P8). Nenhum ritual existe para reportar status: isso é o digest.
+Ritual sem Ritual Record não aconteceu (P8). Nenhum ritual serve para reportar status; quem faz isso é o digest.
 
 ### 4.2 Tabela de rituais
 
@@ -224,7 +224,7 @@ Ritual sem Ritual Record não aconteceu (P8). Nenhum ritual existe para reportar
 | **Demo** (Sense) | Mostrar funcionando ao vivo + números; encerrar bets (G6). Vira insumo do Sense & Respond | Último dia do ciclo | 45 min | Flow Steward | Time + squads piloto convidadas (opcional) | Bet `active`, Assessment, Adoption Report, digests do ciclo | Metric Snapshot `cycles/<C>/report.md`; Bet com estado final + `verified` (G6); Ritual Record; Transcript | `ritual demo open\|close` (o close chama `metrics-snapshot`) | Não cancela. Sem bet fechando, 15 min só de painel |
 | **Harness Retro** (Respond) | Erro repetido → sensor (P5); incidente → caso de eval; relatório do Sweeper | Último dia, logo depois da Demo | 30 min | Sweeper de plantão | Time | Harness Item `open`, `.audit/` do ciclo, comentários de review, incidentes, `harness/budget.md` | Harness Item com `ladder_step` e `pr`; casos de eval; Ritual Record; Transcript | `ritual harness-retro open\|close` → `harness-fix <HI>`, `eval-add` | Não cancela; sem item, 10 min (é dado bom). **O close falha sem PR aberto para cada item aceito** |
 | **Preceptoria 1:1** | Desenvolvimento do júnior | Semanal | 30 min | Preceptor | Preceptor + júnior | Explain-backs e slices em modo tutor do júnior | Ritual Record mínimo (só as ações combinadas); **nunca** Transcript | `ritual preceptoria open\|close` | Pode remarcar; não pula 2 seguidas |
-| **Dia de limpeza** (Respond; trabalho, não reunião) | Dívida técnica, jardinagem de docs e do KB, sunset | Dia 2 do ciclo | Dia de trabalho focado; fora do orçamento síncrono | Sweeper de plantão | Time | `tech-debt.md` dos repos, `kb-check` L2, relatório de sunset, Harness Item | PRs; Product `sunset`; Harness Item; Ritual Record curto | `ritual limpeza open\|close` (o open roda `sweep`) | Quando o `sweep` voltar vazio 2 ciclos seguidos, cai para meio dia. A meta é sumir |
+| **Dia de limpeza** (Respond; dia de trabalho, sem reunião) | Dívida técnica, jardinagem de docs e do KB, sunset | Dia 2 do ciclo | Dia de trabalho focado; fora do orçamento síncrono | Sweeper de plantão | Time | `tech-debt.md` dos repos, `kb-check` L2, relatório de sunset, Harness Item | PRs; Product `sunset`; Harness Item; Ritual Record curto | `ritual limpeza open\|close` (o open roda `sweep`) | Quando o `sweep` voltar vazio 2 ciclos seguidos, cai para meio dia. A meta é o ritual deixar de ser necessário |
 | **Sense & Respond do ART** (externo) | Interface com o ART; substitui System Demo e I&A | 1× por iteração | 2h | RTE | Lead + AIVA | Report do ciclo, Adoption Report, Ritual Record da Demo, PI Outcome | Ritual Record (decisões do ART que afetam o time); ADR ou Idea nova; Transcript se o ART permitir | `ritual sense-respond open\|close` (o open monta o pacote de entrada) | Do ART |
 | **PI Outcome Planning** (externo) | Compromisso com outcomes do PI | 1× por PI | 1 dia | RTE | Lead + AIVA + Bet Owners do próximo ciclo | Product (degraus), Adoption Report, reports dos ciclos, Idea `triaged`, Bet `proposed` | PI Outcome `pi/<PI>/outcomes.md`; Ritual Record | `ritual pi-outcome open\|close` | Do ART |
 
@@ -240,19 +240,19 @@ A conta usa a duração agendada de cada ritual. "Típico" supõe metade dos Syn
 | AIVA | Dev + Sense & Respond 120 (a triagem é assíncrona) | 360 min (6h) | 420 min (7h) |
 | Lead (fora dos pods) | Betting 45 + Bloqueios 30 a 60 + Demo 45 + Retro 30 + Sense & Respond 120 + Mob A das Tier 2 45 a 90 + Mob Construction 0 a 30 | 315 min (5h15) | 420 min (7h) |
 
-Conferência do Dev: típico 45 + 90 + 0 + 30 + 45 + 30 = 240; teto 45 + 90 + 30 + 60 + 45 + 30 = 300. Duas regras seguram o teto quando a Mob A estoura até 60 min: Mob A acima de 90 min somados no ciclo deixa a Mob B assíncrona (2×60 + 0 = 90 + 30), e a Mob Construction ocupa o lugar da Mob B síncrona, não soma a ela. O PI Outcome Planning (1 dia por PI) e o Dia de limpeza (trabalho, não reunião) ficam fora da conta.
+Conferência do Dev: típico 45 + 90 + 0 + 30 + 45 + 30 = 240; teto 45 + 90 + 30 + 60 + 45 + 30 = 300. Duas regras seguram o teto quando a Mob A estoura até 60 min: Mob A acima de 90 min somados no ciclo deixa a Mob B assíncrona (2×60 + 0 = 90 + 30), e a Mob Construction ocupa o lugar da Mob B síncrona em vez de somar a ela. O PI Outcome Planning (1 dia por PI) e o Dia de limpeza (que é trabalho, e não reunião) ficam fora da conta.
 
-O draft dizia ~3h. A conta honesta dá ~4h típico e 5h teto para o dev. A diferença é a Mob A por bet, que o draft contava por baixo. O relatório da Anthropic mostrou tempo de reunião subindo 20% em times AI-native; alinhamento curto e bom é onde o humano rende mais, então o orçamento é defensável. Para compensar: Mob B, triagem e todos os gates são assíncronos, e o Sync de bloqueios cancela por regra. Reunião de status não existe.
+O draft dizia ~3h. Com tudo somado, a conta dá ~4h típico e 5h teto para o dev. A diferença é a Mob A por bet, que o draft contava por baixo. O relatório da Anthropic mostrou tempo de reunião subindo 20% em times AI-native; alinhamento curto e bom é onde o humano rende mais, então o orçamento se justifica. Para compensar, Mob B, triagem e todos os gates são assíncronos, e o Sync de bloqueios cancela por regra. Não há reunião de status.
 
 ### 4.4 Transcrição e privacidade
 
-- **O que se grava:** Betting, Mob A, Mob Construction, Demo e Harness Retro, com aviso no começo. Sense & Respond só se o ART permitir. Sync de bloqueios não é gravado: o record basta.
-- **Fora do registro:** qualquer pessoa pode pedir "fora do registro" para um trecho, e o trecho sai da transcrição. O Transcript guarda só a contagem (`off_record_spans`).
-- **Nunca se grava:** preceptoria, 1:1 e conversa de desempenho. Nesses casos o registro é só a ação combinada.
-- **Redação determinística antes do agente:** `meeting-record` chama `t0 transcript redact`, que roda o scanner de segredo e as regex de CPF, conta, e-mail e telefone **antes** de qualquer modelo ver o texto. Depois, uma passada do agente para dado de cliente. O Transcript fica sem `verified` até o facilitador confirmar.
-- **Retenção:** Transcript tem `stale_after` de 180 dias (**PROPOSTA**, pendente de validação com jurídico/LGPD). Vencido, o Sweeper apaga a transcrição e mantém o Ritual Record, que guarda as decisões para sempre.
-- **Extração pelo agente:** ideias e decisões candidatas tiradas da transcrição entram como Idea `new` ou ADR `proposed` **sem `verified`**. Só valem depois de confirmadas por um humano (Idea no G0; ADR no PR do KB).
-- **Rollout:** dias 0 a 30 em **dry-run** (redige, mas não persiste) até o aval de privacidade/LGPD (§9).
+- Gravam-se Betting, Mob A, Mob Construction, Demo e Harness Retro, com aviso no começo. Sense & Respond só se o ART permitir. O Sync de bloqueios não é gravado, porque o record basta.
+- Qualquer pessoa pode pedir "fora do registro" para um trecho, e o trecho sai da transcrição. O Transcript guarda só a contagem (`off_record_spans`).
+- Preceptoria, 1:1 e conversa de desempenho nunca são gravadas. Nesses casos o registro é só a ação combinada.
+- A redação determinística vem antes do agente: `meeting-record` chama `t0 transcript redact`, que roda o scanner de segredo e as regex de CPF, conta, e-mail e telefone **antes** de qualquer modelo ver o texto. Depois, o agente faz uma passada para dado de cliente. O Transcript fica sem `verified` até o facilitador confirmar.
+- Retenção: Transcript tem `stale_after` de 180 dias (**PROPOSTA**, pendente de validação com jurídico/LGPD). Vencido o prazo, o Sweeper apaga a transcrição e mantém o Ritual Record, que guarda as decisões para sempre.
+- Ideias e decisões candidatas que o agente extrai da transcrição entram como Idea `new` ou ADR `proposed` **sem `verified`**. Só valem depois de confirmadas por um humano (Idea no G0; ADR no PR do KB).
+- No rollout, os dias 0 a 30 rodam em **dry-run** (redige, mas não persiste) até o aval de privacidade/LGPD (§9).
 
 ---
 
@@ -267,7 +267,7 @@ O draft dizia ~3h. A conta honesta dá ~4h típico e 5h teto para o dev. A difer
 | **Jira** | Feature (bet) e Story (slice) espelhadas, status do workflow, comentários do ART | Governança e rastreabilidade do PI |
 | **Painel** | Métricas geradas (§7) | Visibilidade sem cerimônia |
 
-Regra de ouro: **se o agente precisa disso para editar código, mora no repo; se precisa para decidir o que fazer, mora no KB.** É proibido colar conteúdo do KB em repo de código: linka-se por `uid`. A única cópia permitida é o arquivo de contract test, gerado a partir do Contract com o `uid` no cabeçalho.
+A regra: **se o agente precisa disso para editar código, mora no repo; se precisa para decidir o que fazer, mora no KB.** É proibido colar conteúdo do KB em repo de código: linka-se por `uid`. A única cópia permitida é o arquivo de contract test, gerado a partir do Contract com o `uid` no cabeçalho.
 
 ### 5.2 KB como contexto em toda interação
 
@@ -275,20 +275,20 @@ O mecanismo que deixa o KB alcançável e carregado em toda sessão (rituais, sp
 
 **Workspace pattern em 20 linhas** (detalhe em `methodology/workspace-pattern.md`, ADR-0002):
 
-- **Submodules no KB? Não.** Funciona, mas dá HEAD destacado (agente perde commit), bump de ponteiro diário, código velho, KB preso ao repo menos legível e token de CI que lê todos os repos. Android, Zephyr e Chromium usam manifesto + clones irmãos. A gente também.
-- **Manifesto no KB:** `/products/<p>/workspace.md`, concept `type: Workspace` com os repos, papéis, `depends_on` e grupos. Muda por PR revisado.
-- **Workspace por produto:** `t0 ws init <p>` monta `~/ws/<p>/` com `kb/` e os repos como clones normais. Repo sem acesso fica `absent`. Para bet paralela, `t0 bet start BET-NNN --isolate` cria `~/ws/<p>@BET-NNN/` com worktrees.
-- **Contexto em toda sessão:** a raiz do workspace tem um `AGENTS.md` gerado, o card (≤8.000 chars), com bet ativa, critérios de aceite, repos e mapa do KB. Claude Code, Copilot e Kiro leem AGENTS.md de raiz nativamente. Abra sempre a pasta do workspace, nunca multi-root.
-- **Por cima do card:** plugin `t0` com hooks (card velho vira delta de ≤3.000 chars, subagente ganha card, aviso de bet trocada) e o MCP local `t0-kb` (stdio, sem serviço hospedado). Copilot CLI: `source .t0/env.sh`. Kiro: steering `t0.md`.
-- **Cloud agent e CI:** checkout read-only do `t0-kb` em `.kb/` e `t0 mcp --kb .kb`. Sem KB, o agente para e avisa.
-- **Bet ativa:** `T0_BET`, depois a branch `bet/BET-NNN/<STORY>-<slug>`, depois `.t0/bet.json`, depois chave Jira por lookup. Sem bet, skill de código não escreve código.
-- **Cross-repo:** um slice = um repo = um PR. Trailers `Bet:`, `Story:`, `Jira-Feature:`, `Depends-on:`, `KB-Context:`. O status obrigatório `t0/merge-order` lê o change set no KB, nunca a API de outro repo. Todo PR é deployável sozinho (expand → migrate → contract).
-- **Escrita no KB, três raias:**
-  - Registros (`t0 log`, decisões, eventos de PR): arquivo novo com nome único em `steps/`, PR com auto-merge. Zero conflito.
+- A gente não usa submodules no KB. Funciona, mas dá HEAD destacado (agente perde commit), bump de ponteiro diário, código velho, KB preso ao repo menos legível e token de CI que lê todos os repos. Android, Zephyr e Chromium usam manifesto + clones irmãos, e a gente faz igual.
+- O manifesto fica no KB, em `/products/<p>/workspace.md`: um concept `type: Workspace` com os repos, papéis, `depends_on` e grupos. Muda por PR revisado.
+- Cada produto tem um workspace. `t0 ws init <p>` monta `~/ws/<p>/` com `kb/` e os repos como clones normais. Repo sem acesso fica `absent`. Para bet paralela, `t0 bet start BET-NNN --isolate` cria `~/ws/<p>@BET-NNN/` com worktrees.
+- Toda sessão recebe contexto: a raiz do workspace tem um `AGENTS.md` gerado, o card (≤8.000 chars), com bet ativa, critérios de aceite, repos e mapa do KB. Claude Code, Copilot e Kiro leem AGENTS.md de raiz nativamente. Abra sempre a pasta do workspace, nunca multi-root.
+- Por cima do card vêm o plugin `t0` com hooks (card velho vira delta de ≤3.000 chars, subagente ganha card, aviso de bet trocada) e o MCP local `t0-kb` (stdio, sem serviço hospedado). No Copilot CLI, `source .t0/env.sh`; no Kiro, steering `t0.md`.
+- Cloud agent e CI fazem checkout read-only do `t0-kb` em `.kb/` e rodam `t0 mcp --kb .kb`. Sem KB, o agente para e avisa.
+- A bet ativa sai de `T0_BET`, depois da branch `bet/BET-NNN/<STORY>-<slug>`, depois de `.t0/bet.json`, depois da chave Jira por lookup. Sem bet, skill de código não escreve código.
+- Cross-repo: um slice = um repo = um PR. Trailers `Bet:`, `Story:`, `Jira-Feature:`, `Depends-on:`, `KB-Context:`. O status obrigatório `t0/merge-order` lê o change set no KB, nunca a API de outro repo. Todo PR é deployável sozinho (expand → migrate → contract).
+- A escrita no KB segue três raias:
+  - Registros (`t0 log`, decisões, eventos de PR): arquivo novo com nome único em `steps/`, PR com auto-merge. Como ninguém edita o mesmo arquivo, não tem conflito.
   - Conhecimento (spec, plan, slices, ADR, rituais, transcrições redigidas): PR com CODEOWNERS.
   - Derivados (`index.md`, `log.md`, `changeset.md`, chaves `jira:` e `state`): só o workflow `kb-render`, serializado.
-- **Uma credencial cruza repos:** o GitHub App KB-writer, instalado só no `t0-kb`.
-- **A verificar antes do rollout:** auto-merge sob a proteção do banco (fallback: lote horário aprovado pelo Flow Steward), setup steps e MCP stdio no cloud agent, stdout de hook no Copilot CLI e no Kiro.
+- Só uma credencial cruza repos: o GitHub App KB-writer, instalado só no `t0-kb`.
+- Falta verificar antes do rollout: auto-merge sob a proteção do banco (fallback: lote horário aprovado pelo Flow Steward), setup steps e MCP stdio no cloud agent, stdout de hook no Copilot CLI e no Kiro.
 
 ### 5.3 Layout do KB
 
@@ -393,9 +393,9 @@ Ordem de escrita: **KB primeiro, sempre.** `bet-sync` chama `t0 jira sync`, que 
 | Story points | KB → Jira | Valor fixo 1 por slice, só se o ART exigir; nunca estimado |
 | Outcomes do PI | KB → Jira/Confluence | PI Outcome e `cycles/<C>/report.md` geram o texto; o AIVA leva |
 
-**Regra de conflito:** conteúdo (texto, AC, links) é do KB, ponto. Status é "última transição com fonte registrada vence"; divergência que o sync não resolve sozinho vira `state: conflict` no slice + item no digest para o Flow Steward. Nunca há sobrescrita silenciosa: toda escrita do sync vai para o `log.md` da bet.
+**Regra de conflito:** conteúdo (texto, AC, links) é sempre do KB. Status é "última transição com fonte registrada vence"; divergência que o sync não resolve sozinho vira `state: conflict` no slice + item no digest para o Flow Steward. Nunca há sobrescrita silenciosa: toda escrita do sync vai para o `log.md` da bet.
 
-**Quando o sync roda:** a cada comando do pack que escreve no KB, e todo dia num reconcile noturno (`process:t0-sync`, que roda `t0 jira sync --reconcile`). O reconcile produz o **relatório de drift** que o Flow Steward lê no digest. Meta: drift zero na Demo.
+**Quando o sync roda:** a cada comando do pack que escreve no KB, e todo dia num reconcile noturno (`process:t0-sync`, que roda `t0 jira sync --reconcile`). O reconcile produz o **relatório de drift** que o Flow Steward lê no digest. A meta é chegar à Demo com drift zero.
 
 ---
 
@@ -454,21 +454,21 @@ Regras de fluxo:
 
 Na **segunda** ocorrência do mesmo erro de agente, o Harness Item (aberto na primeira por `slice-verify`, que chama `t0 harness record`) sobe a escada, do nível mais alto para o mais baixo:
 
-1. **Sensor computacional:** lint com mensagem de correção escrita para o agente, teste, hook de git ou gate de CI. Tool-agnóstico por construção.
+1. **Sensor computacional:** lint com mensagem de correção escrita para o agente, teste, hook de git ou gate de CI. Funciona igual em qualquer ferramenta.
 2. Se impossível: **regra de área**, de uma fonte só em `agents/rules/<area>.md`, gerada por `t0 rules build` para `.claude/rules/`, `.github/instructions/` e steering do Kiro.
 3. Se é procedimento longo: **skill** no pack.
 4. **`AGENTS.md`**, último recurso, ≤150 linhas.
 
-**Regra sem exceção vai para hook de git ou gate de CI, não para hook de agente.** As três ferramentas têm hooks de agente (Claude Code, Copilot e Kiro), mas cada uma com formato, eventos e semântica próprios: não são portáteis, o Copilot no VS Code ignora matchers, e timeout de hook no Copilot falha aberto. Por isso o que é obrigatório mora em git hook + CI, que valem igual para as três. Hook de agente é acelerador opcional (injeção de contexto, guard local), gerado por ferramenta pelo `pack-setup` a partir de scripts compartilhados. Teto de 20 hooks/deny por repo. O Sweeper reporta linhas, hooks e regras por repo todo ciclo em `harness/budget.md`.
+**Regra sem exceção vai para hook de git ou gate de CI, e nunca para hook de agente.** As três ferramentas têm hooks de agente (Claude Code, Copilot e Kiro), mas cada uma com formato, eventos e semântica próprios: não são portáteis, o Copilot no VS Code ignora matchers, e timeout de hook no Copilot falha aberto. Por isso o que é obrigatório mora em git hook + CI, que valem igual para as três. Hook de agente é acelerador opcional (injeção de contexto, guard local), gerado por ferramenta pelo `pack-setup` a partir de scripts compartilhados. Teto de 20 hooks/deny por repo. O Sweeper reporta linhas, hooks e regras por repo todo ciclo em `harness/budget.md`.
 
 ### 6.4 Política de eval para o que o time entrega (P10)
 
 Vale para skills, MCPs, agentes e o próprio pack.
 
-- Toda ferramenta que vai para squads piloto tem **suíte de regressão de 20 a 50 tarefas** tiradas de uso e falhas reais, com casos positivos e negativos, e precisa de **≥95%** para o G7 (proposta). Tarefa que dá 0%: a suspeita é a tarefa; monta uma solução de referência.
+- Toda ferramenta que vai para squads piloto tem **suíte de regressão de 20 a 50 tarefas** tiradas de uso e falhas reais, com casos positivos e negativos, e precisa de **≥95%** para o G7 (proposta). Se uma tarefa dá 0%, a primeira suspeita é a própria tarefa: monta uma solução de referência.
 - Duas suítes por produto: **capacidade** (começa baixa, é para subir) e **regressão** (perto de 100%). Eval de capacidade que satura vira regressão.
 - Métrica: `pass@1` para ferramenta em que um resultado bom basta; **`pass^3`** para agente que a squad usa sem olhar (consistência). O `product.md` declara qual.
-- Grader determinístico sempre que der; juiz LLM por dimensão, com opção "não sei"; humano só em amostra. Avalia resultado, não caminho.
+- Grader determinístico sempre que der; juiz LLM por dimensão, com opção "não sei"; humano só em amostra. O que se avalia é o resultado, e não o caminho até ele.
 - **Upgrade de modelo, mudança de prompt ou de skill só entra se a regressão fica igual ou melhor.** O Eval Owner assina; `eval-run` registra no Eval Suite.
 - **Incidente ou defeito escapado vira caso de eval antes da Harness Retro fechar** (`eval-add`).
 - Eval-driven: em bet de plataforma, os primeiros casos de eval são escritos no Shape, antes do código.
@@ -492,7 +492,7 @@ De onde vêm os números: o time é a coorte mais motivada, então 70% é razoá
 
 ## 7. Métricas e visibilidade
 
-Um painel, alimentado por Git, CI, Jira, telemetria dos agentes e o próprio KB. Ninguém reporta nada à mão. O time é o primeiro cliente do pipeline que vende para as squads.
+Um painel só, alimentado por Git, CI, Jira, telemetria dos agentes e o próprio KB. Ninguém reporta nada à mão. O time é o primeiro cliente do pipeline que vende para as squads.
 
 | Camada | Métrica | Decisão que ela informa |
 |---|---|---|
@@ -507,7 +507,7 @@ Um painel, alimentado por Git, CI, Jira, telemetria dos agentes e o próprio KB.
 | **KB** | Concepts com `stale_after` vencido, % de gates com `verified: human:`, drift do Jira, % de rituais com Ritual Record | Se o sistema de registro está vivo |
 | **Formação** | % de PRs Tier 1/2 de júnior e Tier 2 com "Em minhas palavras"; slices em modo tutor feitos; plantão em dupla | Saúde da preceptoria (participação, nunca nota) |
 
-**Regra anti-vaidade (inegociável):**
+**Regra anti-vaidade (sem exceção):**
 
 - **Nenhum ranking de pessoa** por token, PR, linha ou sessão. A visão por pessoa mostra só o que está em andamento e travado, para destravar. A métrica de pessoa é o que ela entregou e destravou (slices done, reviews dentro do SLO, bloqueios resolvidos). Dashboard que mostra pessoa por volume de agente é bug Tier 1.
 - **Token é piso e custo, nunca meta.**
@@ -521,7 +521,7 @@ Cadência: `t0 digest` diário gera `cycles/<C>/digests/`; `metrics-snapshot` no
 
 ## 8. Interface com o SAFe (AI-Native SAFe, 2026)
 
-Decisão mantida: **SAFe por fora, builder pods por dentro.** O que muda com os fatos verificados do AI-Native SAFe é o argumento: o ART passou a pedir **outcomes** no PI, não features comprometidas, e os nossos degraus de adoção já são outcomes. A interface fica mais fina, não mais grossa.
+Decisão mantida: **SAFe por fora, builder pods por dentro.** O que muda com os fatos verificados do AI-Native SAFe é o argumento: o ART passou a pedir **outcomes** no PI, não features comprometidas, e os nossos degraus de adoção já são outcomes. Com isso a interface fica mais fina.
 
 | SAFe (AI-Native) | Neste modelo | Quem produz | Como chega lá |
 |---|---|---|---|
@@ -547,7 +547,7 @@ Quando rever a decisão: mais de 3 pods no mesmo produto; BU exigindo pontos por
 
 ## 9. Rollout em 90 dias e riscos
 
-Começa com 1 pod e o pack mínimo, prova em 2 ciclos, escala.
+O rollout começa com 1 pod e o pack mínimo, prova o modelo em 2 ciclos e depois escala.
 
 **Dias 0 a 30: fundação (1 pod piloto, provavelmente Dev Tooling)**
 

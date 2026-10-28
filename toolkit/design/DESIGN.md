@@ -5,8 +5,8 @@ This is the contract every build stream implements. Where it differs from the sk
 ## Synthesis decision
 
 - **Base: candidate 1 ("event-folded KB")**, sketch in `design/sketch-c1/`. Cross-judge (Fable) scored C1 23 and C2 19. C1 has the smaller public surface (`KB` facade, `Plan | Refusal`, one `apply`), invariants in signatures (`RecordsPR`, always-draft forge, `Redacted`), the registry as one code table with self-tests, and a single hook entrypoint.
-- **Narrowed central bet.** C1 derived every `state`/`verified` from events, which contradicts methodology §2.2 and workspace §4, needs an App to read PR reviews, and adds a 1–2 min lag. Synthesis: each key has exactly one owner, per type.
-  - Knowledge-lane types (Idea after `new`, Bet, Spec, Plan, Contract, ADR, Policy, Assessment, Bugfix, Rotation, Cycle Record): `state` and `verified` change **only** in the gate PR (`t0 gate`), which also adds the evidence file `gates/<G>.md`. Approval of that PR is the gate approval. `t0 kb check` re-runs the gate checks at PR head (`L1.gate-checks-hold`).
+- **Narrowed central bet.** C1 derived every `state`/`verified` from events, which contradicts methodology §2.2 and workspace §4, needs an App to read PR reviews, and adds a lag of 1 to 2 min. Synthesis: each key has exactly one owner, per type.
+  - Knowledge-lane types (Idea after `new`, Bet, Spec, Plan, Contract, ADR, Policy, Assessment, Bugfix, Rotation, Cycle Record): `state` and `verified` change only in the gate PR (`t0 gate`), which also adds the evidence file `gates/<G>.md`. Approval of that PR is the gate approval. `t0 kb check` re-runs the gate checks at PR head (`L1.gate-checks-hold`).
   - Derived keys owned by `kb-render` only: Slice `state` after `ready` (`building`, `in-review`, `done`, `blocked`), `pr`, `audit`, `jira` (write-once from `jira-linked` records), `markers_open`, `status` (from `state` via the table's `status_map`), plus `index.md`, `log.md`, `changeset.md`.
   - `view.fold` stays as the read-side index and anomaly detector (illegal transitions, materialized drift), not the owner of state.
 - **Ideas are created through the knowledge lane** (a small PR, auto-reviewable by the Flow Steward), not the records lane, so sequential ids never collide. `t0 new idea` reserves `IDEA-NNNN` by scanning `main` plus open branches; collisions fail L1 `uid-unique` at PR time.
@@ -15,7 +15,7 @@ This is the contract every build stream implements. Where it differs from the sk
 ## Grafts from candidate 2
 
 1. Generic `ritual` engine and skill in v0.1 (`design/c2/gate_ritual.py`): `t0 ritual <slug> open|close`, agenda from the Ritual concept's `inputs`, close writes Ritual Record (+ redacted Transcript), preceptoria refuses a transcript.
-2. The KB template **is** the positive test fixture (`toolkit/tests/fixtures/kb-positive` points at `okf-template/`), with `products/exemplo/` exercising every type and lane.
+2. The KB template is the positive test fixture (`toolkit/tests/fixtures/kb-positive` points at `okf-template/`), with `products/exemplo/` exercising every type and lane.
 3. Template bodies as KB `Template` concepts (`methodology/templates/<type>.md`); `t0 new <type>` instantiates them.
 4. `Report.format(text|github|json)`; `t0 kb check --format github`; `t0 slice dor <KEY>`; `t0 doctor` (subset).
 5. Eval cases: `slice-build-draft-only`, `kb-record-secret-refused`, `ritual-preceptoria-no-transcript`, `hook-blocks-derived-edit`, `portable-skill-trigger`.

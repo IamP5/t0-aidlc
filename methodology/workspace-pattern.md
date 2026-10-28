@@ -16,19 +16,19 @@ generated: { by: claude-code/opus-5.5, at: 2026-10-27T23:10:00-03:00 }
 
 Este playbook define o ADR-0002. Fontes: `research/workspace-topology.md`, `research/workspace-agent-mechanics.md` e `research/multi-agent-compat.md`. Todo mecanismo que essas pesquisas não confirmam vem marcado **(verificar)** e precisa de teste antes do rollout. A seção 8 junta a lista.
 
-**A ideia num parágrafo.** O KB (`t0-kb`) continua sendo um repo próprio, legível pelo time todo, e guarda um manifesto por produto. Cada dev tem um workspace de longa duração por produto, `~/ws/<produto>/`, com o KB e os repos do produto clonados lado a lado. Na raiz desse workspace mora um `AGENTS.md` gerado, o **card de contexto**: mapa do KB, bet ativa, papel de cada repo. As três ferramentas leem um `AGENTS.md` de raiz nativamente, então o piso do padrão não depende de plugin, de servidor nem de multi-root. Plugin, hooks e um MCP local (stdio) só deixam o card fresco e somam ferramentas. A escrita no KB tem três raias. Registros entram como arquivo novo, com nome único. Conhecimento entra por PR revisado. Arquivos derivados têm um único escritor, um workflow no próprio KB. Nada de serviço hospedado no dia um.
+**A ideia num parágrafo.** O KB (`t0-kb`) continua sendo um repo próprio, legível pelo time todo, e guarda um manifesto por produto. Cada dev tem um workspace de longa duração por produto, `~/ws/<produto>/`, com o KB e os repos do produto clonados lado a lado. Na raiz desse workspace mora um `AGENTS.md` gerado, o **card de contexto**: mapa do KB, bet ativa, papel de cada repo. As três ferramentas leem um `AGENTS.md` de raiz nativamente, então o piso do padrão não depende de plugin, de servidor nem de multi-root. Plugin, hooks e um MCP local (stdio) só deixam o card fresco e somam ferramentas. A escrita no KB tem três raias. Registros entram como arquivo novo, com nome único. Conhecimento entra por PR revisado. Arquivos derivados têm um único escritor, um workflow no próprio KB. No dia um não existe serviço hospedado.
 
 ---
 
 ## 1. Dá pra ter o repo OKF com os repos de produto como git submodules?
 
-**Funcionar, funciona. Não façam.** A estratégia melhor é um manifesto no KB mais clones irmãos num workspace gerado. Android (`repo`), Zephyr (`west`) e Chromium (`gclient`) escolheram esse mesmo modelo, e nenhum usa submodule para isso (workspace-topology §8).
+Funciona, mas a recomendação é não usar. A estratégia melhor é um manifesto no KB mais clones irmãos num workspace gerado. Android (`repo`), Zephyr (`west`) e Chromium (`gclient`) escolheram esse mesmo modelo, e nenhum usa submodule para isso (workspace-topology §8).
 
 O que dá errado com submodule, no nosso dia a dia:
 
 | Falha | O que acontece com a gente |
 |---|---|
-| HEAD destacado depois de `git submodule update` | O agente commita onde o HEAD estiver. O próximo `update` larga esses commits sem avisar. Agente commitando em HEAD solto não é hipótese, é o comportamento padrão. |
+| HEAD destacado depois de `git submodule update` | O agente commita onde o HEAD estiver. O próximo `update` larga esses commits sem avisar. E commitar em HEAD solto é o comportamento padrão do agente. |
 | Bump de ponteiro | Para alguém ver código novo, o KB precisa commitar um bump de gitlink. O histórico do KB vira "bump api", e conflito de gitlink não faz auto-merge. Com 10 pessoas isso é diário. |
 | Código velho | O KB fixa o código de quando alguém deu o último bump. O agente raciocina sobre o `api/` da semana passada achando que é o de hoje. |
 | Esqueceu `--recurse-submodules` | Diretório vazio, e o agente conclui "esse repo está vazio" e começa a scaffoldar do zero. Também quebra todo fluxo de worktree, porque worktree novo nasce com submodule não inicializado. |
@@ -76,11 +76,11 @@ Máquina do dev
 
 Regras:
 
-- **Padrão é um workspace por produto, de longa duração.** Clones normais, branches normais, um `t0 ws sync` de vez em quando. É o que o dev já faz hoje, só que organizado.
-- **Isolamento é opt-in.** `t0 bet start <BET> --isolate` cria `~/ws/<produto>@<BET>/` com worktrees só dos repos da bet. Serve para duas bets em paralelo ou dois agentes na mesma bet. Fica **ao lado** do workspace principal e não dentro dele. Dentro, o `AGENTS.md` do principal viraria ancestral e a sessão carregaria dois cards, estourando o orçamento. O `slice-build --parallel` da metodologia usa o mesmo mecanismo.
-- **Um agente por clone.** Ninguém troca branch embaixo de um agente rodando. Segundo agente em paralelo vai para um workspace isolado.
-- **A raiz não é repo git, de propósito.** Cada subpasta é um repo. O VS Code acha os repos aninhados com `git.repositoryScanMaxDepth: 1` **(verificar)**.
-- **Repo sem acesso** é pulado com um aviso e marcado `absent` em `.t0/workspace.json`. O card diz isso, então o agente nunca acha que o repo está vazio.
+- O padrão é um workspace por produto, de longa duração, com clones normais, branches normais e um `t0 ws sync` de vez em quando. É o que o dev já faz hoje, só que organizado.
+- Isolamento é opt-in. `t0 bet start <BET> --isolate` cria `~/ws/<produto>@<BET>/` com worktrees só dos repos da bet. Serve para duas bets em paralelo ou dois agentes na mesma bet. Fica **ao lado** do workspace principal e não dentro dele. Dentro, o `AGENTS.md` do principal viraria ancestral e a sessão carregaria dois cards, estourando o orçamento. O `slice-build --parallel` da metodologia usa o mesmo mecanismo.
+- Cada clone tem um agente só. Ninguém troca branch embaixo de um agente rodando, e um segundo agente em paralelo vai para um workspace isolado.
+- A raiz não é repo git, de propósito: cada subpasta é um repo. O VS Code acha os repos aninhados com `git.repositoryScanMaxDepth: 1` **(verificar)**.
+- Repo sem acesso é pulado com um aviso e marcado `absent` em `.t0/workspace.json`. O card diz isso, então o agente nunca acha que o repo está vazio.
 
 ### 2.2 Arquivos que definem o workspace
 
@@ -148,7 +148,7 @@ workspace:
 Notas humanas: quem cuida de quê, cadência de release, link para [product.md](./product.md).
 ```
 
-Sem pin de revisão. Bet sempre parte da branch padrão de cada repo. O conjunto de SHAs testado junto fica no change set (seção 3), não no manifesto. URL de repo não é segredo. O acesso quem garante é o forge. Token e credencial nunca aparecem no manifesto.
+O manifesto não fixa revisão. A bet sempre parte da branch padrão de cada repo, e o conjunto de SHAs testado junto fica no change set (seção 3). URL de repo não é segredo, porque quem garante o acesso é o forge. Token e credencial nunca aparecem no manifesto.
 
 **Bet** (`bet.md`, chaves do profile mais `jira`):
 
@@ -167,7 +167,7 @@ stale_after: 2026-11-07T23:59:00-03:00
 generated: { by: human:ana, at: 2026-10-27T10:00:00-03:00 }
 ```
 
-**Slice** (`slices/02-api-limits.md`): `repo: api`, `depends_on: [01-ledger-limits]`, `jira: PAY-131`, critérios de aceite em bullets. Um slice é um repo e um PR. Uma Story que precisaria de dois repos vira dois slices ligados por `depends_on`. As chaves `state`, `pr` e `audit` do slice são derivadas (seção 4), ninguém edita na mão.
+**Slice** (`slices/02-api-limits.md`): `repo: api`, `depends_on: [01-ledger-limits]`, `jira: PAY-131`, critérios de aceite em bullets. Um slice é um repo e um PR. Uma Story que precisaria de dois repos vira dois slices ligados por `depends_on`. As chaves `state`, `pr` e `audit` do slice são derivadas (seção 4), e ninguém edita essas chaves na mão.
 
 **Marcador da bet ativa** (`~/ws/payments/.t0/bet.json`):
 
@@ -217,9 +217,9 @@ O renderer lê o conteúdo do KB de `origin/main` via `git show`, e não da árv
 
 ### 2.4 Como cada ferramenta recebe o contexto do KB
 
-Três camadas. A camada 1 sozinha já garante correção. As outras duas trazem frescor e ferramentas.
+O contexto chega em três camadas. A camada 1 sozinha já garante correção; as outras duas trazem frescor e ferramentas.
 
-1. **Arquivo, igual para todo mundo.** `~/ws/<p>/AGENTS.md`. As três ferramentas leem um `AGENTS.md` de raiz nativamente (multi-agent-compat §2.1). Abrir o workspace como **pasta única** evita a descoberta multi-root, que não é documentada no Copilot do VS Code e que no Kiro limita o `fileMatch` por raiz.
+1. **Arquivo, igual para todo mundo.** É o `~/ws/<p>/AGENTS.md`. As três ferramentas leem um `AGENTS.md` de raiz nativamente (multi-agent-compat §2.1). Abrir o workspace como **pasta única** evita a descoberta multi-root, que não é documentada no Copilot do VS Code e que no Kiro limita o `fileMatch` por raiz.
 2. **Hooks, por ferramenta.** Avisam quando o card está velho, re-injetam depois de compactação, dão contexto aos subagentes e guardam a bet.
 3. **MCP, igual nas três.** `t0 mcp` é o servidor **stdio** `t0-kb`. É um processo local, sem porta e sem serviço hospedado. Ferramentas: `kb_context(bet?)`, `kb_search(query, scope?)`, `kb_get(path|uid)`, `bet_get(id|jira_key)`, `changeset_get(bet)`, `kb_record(kind, body, bet?, story?)`. As instruções do servidor (≤1.500 chars, sempre carregadas, teto do Claude Code é 4.096) dizem: "KB = t0-kb. Sem card t0 no contexto, chame kb_context primeiro. Nunca edite index.md, log.md nem changeset.md do KB." O servidor acha o workspace subindo a partir do cwd até `.t0/workspace.json`, ou recebe `--kb`.
 
@@ -227,11 +227,11 @@ Três camadas. A camada 1 sozinha já garante correção. As outras duas trazem 
 
 | Superfície | Sempre ligado | Frescor, compactação, subagentes | Ferramentas | Fallback |
 |---|---|---|---|---|
-| **Claude Code** (CLI, IDE, Desktop) | `AGENTS.md` da raiz, carregado como ancestral mesmo lançando dentro de `api/`. Os repos de produto têm `CLAUDE.md` ponteiro (metodologia §5.1), e CLAUDE.md desliga a leitura de AGENTS.md. Por isso o `t0 install` grava `instructionFiles: claude-md-and-agents-md` nas configs de usuário. | Plugin `t0` exigido por managed settings (`enabledPlugins`). **SessionStart** `startup\|resume\|clear\|compact` roda `t0 context --format delta`. **SubagentStart** injeta um card de subagente (≤3.000 chars), porque Explore e Plan nascem sem memória. **UserPromptSubmit** avisa numa linha quando o prompt cita uma chave Jira de outra bet. Se ainda assim existir `CLAUDE*.md` acima do cwd sem o `instructionFiles`, o hook injeta o card inteiro (≤8.000) no lugar do delta, porque aí o AGENTS.md não carregou. | `.mcp.json` do plugin → `t0 mcp`; skills do plugin | Acesso aos irmãos e ao `kb/`: `permissions.additionalDirectories` de **usuário** com caminho **absoluto** (`/Users/ana/ws/payments`), escrito pelo `t0 ws init`. Escopo de projeto espera trust do workspace e é ignorado em `-p` (mechanics §1.1). Expansão de `~` nessa chave não está verificada, então nada de `~`. |
+| **Claude Code** (CLI, IDE, Desktop) | `AGENTS.md` da raiz, carregado como ancestral mesmo lançando dentro de `api/`. Os repos de produto têm `CLAUDE.md` ponteiro (metodologia §5.1), e CLAUDE.md desliga a leitura de AGENTS.md. Por isso o `t0 install` grava `instructionFiles: claude-md-and-agents-md` nas configs de usuário. | Plugin `t0` exigido por managed settings (`enabledPlugins`). **SessionStart** `startup\|resume\|clear\|compact` roda `t0 context --format delta`. **SubagentStart** injeta um card de subagente (≤3.000 chars), porque Explore e Plan nascem sem memória. **UserPromptSubmit** avisa numa linha quando o prompt cita uma chave Jira de outra bet. Se ainda assim existir `CLAUDE*.md` acima do cwd sem o `instructionFiles`, o hook injeta o card inteiro (≤8.000) no lugar do delta, porque aí o AGENTS.md não carregou. | `.mcp.json` do plugin → `t0 mcp`; skills do plugin | Acesso aos irmãos e ao `kb/`: `permissions.additionalDirectories` de **usuário** com caminho **absoluto** (`/Users/ana/ws/payments`), escrito pelo `t0 ws init`. Escopo de projeto espera trust do workspace e é ignorado em `-p` (mechanics §1.1). Expansão de `~` nessa chave não está verificada, então ele nunca grava `~`. |
 | **Copilot no VS Code** (agent mode) | Abrir `~/ws/payments` como **pasta única** (não multi-root). `AGENTS.md` da raiz (`chat.useAgentsMdFile`, ligado por padrão). `.vscode/settings.json` gerado liga `chat.useNestedAgentsMdFiles` para carregar o AGENTS.md dos repos (experimental). | Task `t0: sync` com `runOptions.runOn: folderOpen` roda `t0 ws sync --quick` antes do chat **(verificar)**. Plugin instalado como Agent Plugin. O hook de sessionStart dele roda no VS Code com matchers ignorados **(verificar)**. | MCP do plugin | O card manda: "se `.t0/context.md` for mais novo que este card, leia ele primeiro". Fallback para quem abre um repo sozinho: o bloco t0 commitado no `AGENTS.md` de cada repo (2.7). |
 | **Copilot CLI** | `source ~/ws/payments/.t0/env.sh` exporta `COPILOT_CUSTOM_INSTRUCTIONS_DIRS=/Users/ana/ws/payments`, então o AGENTS.md da raiz carrega mesmo lançando dentro de `api/`. O CLI por padrão só sobe até a raiz do repo. | Plugin via `copilot plugin install` (lê o formato Claude). O CLI também lê os hooks do plugin e de `.claude/settings.json`. Se o stdout do hook vira contexto **(verificar)**. O design não depende disso: o card já chega pelo arquivo. | MCP do plugin, ou `~/.copilot/mcp-config.json` | Mesma linha do card sobre `.t0/context.md`. |
 | **Copilot cloud agent** | Sem workspace. O `AGENTS.md` commitado do repo de produto traz o bloco t0. `.github/workflows/copilot-setup-steps.yml` faz checkout read-only do `t0-kb` em `.kb/` (gitignored) e instala o `t0` **(verificar: setup steps liberados no GHE do banco)**. | n/a (uma tarefa por execução) | Repo Settings → Copilot → MCP: stdio `t0 mcp --kb .kb`, allowlist `kb_context`, `kb_search`, `kb_get`, `bet_get`. Servidor stdio disponível depois dos setup steps **(verificar)**. | O bloco manda: pegue a chave Jira da issue, chame `kb_context(<chave>)` ou rode `t0 context <chave> --kb .kb`. Se nada funcionar, pare e diga "KB indisponível". O `t0 pr check` avisa PR sem trailer `KB-Context`. |
-| **Kiro** (IDE e kiro-cli) | Abrir `~/ws/payments` como pasta. `AGENTS.md` é sempre incluído. | `.kiro/hooks/t0.json`: Session Start roda `t0 context --format delta --write`, Agent Stop roda `t0 kb push --if-due`, Pre Tool Use roda o guard. `.kiro/steering/t0.md` com `inclusion: always` contém `#[[file:.t0/context.md]]`, então o delta entra igual ao do Claude e o card nunca entra duas vezes. Se o include é resolvido depois do hook de Session Start **(verificar)**. Nada de custom agents do Kiro: eles não carregam steering nem skills. | Skills e MCP pelo power `t0` (formato Agent Plugins). O Kiro carregar um power que também tem `.claude-plugin/` e `hooks/` **(verificar)**. Sem power: `t0 install --user` copia para `~/.kiro/skills` e `~/.kiro/settings/mcp.json`. | `~/.kiro/steering/t0.md` (`inclusion: always`, 6 linhas) com a mesma regra do fallback. |
+| **Kiro** (IDE e kiro-cli) | Abrir `~/ws/payments` como pasta. `AGENTS.md` é sempre incluído. | `.kiro/hooks/t0.json`: Session Start roda `t0 context --format delta --write`, Agent Stop roda `t0 kb push --if-due`, Pre Tool Use roda o guard. `.kiro/steering/t0.md` com `inclusion: always` contém `#[[file:.t0/context.md]]`, então o delta entra igual ao do Claude e o card nunca entra duas vezes. Se o include é resolvido depois do hook de Session Start **(verificar)**. Custom agents do Kiro ficam de fora, porque não carregam steering nem skills. | Skills e MCP pelo power `t0` (formato Agent Plugins). O Kiro carregar um power que também tem `.claude-plugin/` e `hooks/` **(verificar)**. Sem power: `t0 install --user` copia para `~/.kiro/skills` e `~/.kiro/settings/mcp.json`. | `~/.kiro/steering/t0.md` (`inclusion: always`, 6 linhas) com a mesma regra do fallback. |
 | **CI sem agente** | n/a | n/a | `t0 pr check` | Workflow reutilizável faz checkout read-only do KB. |
 | **CI com agente** (claude-code-action, `copilot -p`, `kiro-cli --no-interactive`) | Mesmo checkout em `.kb/` + `t0 context <chave> --kb .kb --format agents > card.md`, passado como primeiro arquivo do prompt | n/a | `t0 mcp --kb .kb` | "KB indisponível → pare." |
 
@@ -288,13 +288,13 @@ O `t0 setup` (skill `pack-setup`) gera, e o CI confere com `t0 setup --check`:
 - `.gitignore` com `.kb/`.
 - `.github/workflows/t0.yml`, que chama os workflows reutilizáveis `t0-pr-check` e `t0-kb-sync` do `t0-toolkit` num SHA fixo.
 - `.github/workflows/copilot-setup-steps.yml` (checkout read-only do KB + `t0`), só onde o cloud agent está ligado.
-- Nada de `.mcp.json`, nada de skills copiadas. A fiação mora no workspace e no plugin de usuário, não em 6×N repos.
+- Nenhum `.mcp.json` e nenhuma skill copiada. A fiação mora no workspace e no plugin de usuário, em vez de se repetir em 6×N repos.
 
 ---
 
 ## 3. Fluxo de uma bet em vários repos
 
-**IDs.** A bet nasce no KB (`bet-new`) como `BET-042`. O `t0 jira sync` cria a Feature (`PAY-123`) e uma Story por slice (`PAY-130`, `PAY-131`, `PAY-132`), e as chaves voltam pro KB (seção 4). O G3 exige chave Jira em todo slice, então toda branch de código já nasce com a chave da Story. Conteúdo é do KB. Status segue as regras de espelho da metodologia §5.5.
+**IDs.** A bet nasce no KB (`bet-new`) como `BET-042`. O `t0 jira sync` cria a Feature (`PAY-123`) e uma Story por slice (`PAY-130`, `PAY-131`, `PAY-132`), e as chaves voltam pro KB (seção 4). O G3 exige chave Jira em todo slice, então toda branch de código já nasce com a chave da Story. O conteúdo pertence ao KB, e o status segue as regras de espelho da metodologia §5.5.
 
 **Branches.**
 
@@ -316,16 +316,16 @@ Merge-order: 2/3
 KB-Context: 9f3c1e2
 ```
 
-`KB-Context` é o sha do KB que o agente usou. O título do PR começa com `PAY-131:`, para a integração GitHub–Jira linkar **(verificar: integração ativa no GHE do banco)**. Commits levam os trailers `Bet:` e `Story:`, que a skill coloca.
+`KB-Context` é o sha do KB que o agente usou. O título do PR começa com `PAY-131:`, para a integração entre GitHub e Jira linkar **(verificar: integração ativa no GHE do banco)**. Commits levam os trailers `Bet:` e `Story:`, que a skill coloca.
 
 **Ordem de merge.**
 
-1. **Padrão:** ordem topológica dos `depends_on` do manifesto, provedores primeiro (ledger → api → web). O `depends_on` de cada slice manda quando o `plan.md` diz outra coisa.
-2. **Todo PR tem que ser deployável sozinho**, com expand → migrate → contract. Não existe merge atômico entre repos. A ordem é rede de segurança, não substitui compatibilidade.
-3. **Garantia:** `t0 pr check` posta o status obrigatório `t0/merge-order`. Ele lê o estado do change set **no KB** (`changeset.md` em `main` e os registros bot ainda pendentes em `rec/bot/*`) com um token só de leitura do KB. Nunca consulta a API de outro repo de produto. Re-execução: um workflow agendado no próprio repo (a cada 15 min, só para PRs com `t0/merge-order` vermelho) re-posta o status com o `GITHUB_TOKEN` do repo, e `workflow_dispatch` deixa o dev re-checar na hora **(verificar: status de commit vindo de workflow agendado conta como check obrigatório no ruleset)**. Nenhum `repository_dispatch` entre repos.
-4. **Teste integrado, opcional:** se o `plan.md` define `integration: "<comando rodado da raiz do workspace>"`, o `t0 pr --verify` roda e emite um registro `integration` com os SHAs testados.
+1. Por padrão vale a ordem topológica dos `depends_on` do manifesto, provedores primeiro (ledger → api → web). O `depends_on` de cada slice manda quando o `plan.md` diz outra coisa.
+2. Todo PR tem que ser deployável sozinho, com expand → migrate → contract, porque não existe merge atômico entre repos. A ordem serve de rede de segurança e não substitui compatibilidade.
+3. Quem garante a ordem é o `t0 pr check`, que posta o status obrigatório `t0/merge-order`. Ele lê o estado do change set **no KB** (`changeset.md` em `main` e os registros bot ainda pendentes em `rec/bot/*`) com um token só de leitura do KB. Nunca consulta a API de outro repo de produto. Re-execução: um workflow agendado no próprio repo (a cada 15 min, só para PRs com `t0/merge-order` vermelho) re-posta o status com o `GITHUB_TOKEN` do repo, e `workflow_dispatch` deixa o dev re-checar na hora **(verificar: status de commit vindo de workflow agendado conta como check obrigatório no ruleset)**. Nenhum `repository_dispatch` entre repos.
+4. O teste integrado é opcional. Se o `plan.md` define `integration: "<comando rodado da raiz do workspace>"`, o `t0 pr --verify` roda e emite um registro `integration` com os SHAs testados.
 
-**Change set no KB.** `/products/<p>/bets/BET-NNN/changeset.md` é **derivado**. O `kb-render` gera a partir dos registros `pr-*` e `integration`. Ninguém edita:
+**Change set no KB.** `/products/<p>/bets/BET-NNN/changeset.md` é **derivado**. O `kb-render` gera o arquivo a partir dos registros `pr-*` e `integration`, e ninguém edita na mão:
 
 ```yaml
 ---
@@ -362,11 +362,11 @@ Os registros vêm de duas fontes:
 | **Conhecimento** | `bet.md`, spec, plan, slices, ADRs, `workspace.md`, metodologia, rituais, glossário, **records de reunião e transcrições redigidas** (`/cycles/<C>/rituals/`, `/cycles/<C>/transcripts/`), mudanças de `state` por `t0 gate` | todo o resto | Branch `bet/BET-NNN/<handle>` (ou `kb/<handle>/<tema>`) no `kb/` → PR | CODEOWNERS: dono da bet na pasta da bet, steward da metodologia em `/methodology/`, facilitador em `/cycles/*/rituals/`. Transcrição sempre com revisor humano confirmando a redação |
 | **Derivado** | Todo `index.md`, o `log.md` de cada bet (renderizado de `steps/`), `changeset.md`, as chaves derivadas dos slices (`state` depois de `ready`, `pr`, `audit`), e as chaves `jira:` escritas uma vez a partir dos registros `jira-linked` | gerado | Workflow `kb-render` no push para `main`, `concurrency: kb-render` (serializado), commitando como o App KB-writer, que é ator de bypass do ruleset **(verificar)** | O check de PR rejeita qualquer edição humana ou de agente nesses arquivos e chaves. O hook PreToolUse do plugin bloqueia localmente também |
 
-O `t0 log` da metodologia ("toda skill termina chamando") vira um registro `Step`. O `log.md` da bet passa a ser a renderização desses registros. Assim 10 pessoas registram passo ao mesmo tempo sem disputar o mesmo arquivo.
+O `t0 log` da metodologia ("toda skill termina chamando") emite um registro `Step`, e o `log.md` da bet é a renderização desses registros. Assim 10 pessoas registram passo ao mesmo tempo sem disputar o mesmo arquivo.
 
 **Por que não commit direto em `main`.** Commit direto é auditável mas não passa por check, e a proteção de branch já proíbe. PR de registro com zero aprovação ainda dá trilha com check, assinatura e autor.
 
-**Por que não um MCP hospedado que escreve.** É serviço: revisão de segurança, uma identidade escrevendo por todo mundo, uptime. `kb_record` local mais spool dá a mesma ergonomia com a credencial do próprio dev.
+**Por que não um MCP hospedado que escreve.** Ele seria um serviço, com revisão de segurança, uptime e uma identidade escrevendo por todo mundo. `kb_record` local mais spool dá a mesma ergonomia com a credencial do próprio dev.
 
 **Ruleset do `main` do `t0-kb`:**
 
@@ -379,9 +379,9 @@ O `t0 log` da metodologia ("toda skill termina chamando") vira um registro `Step
 
 **10 pessoas escrevendo ao mesmo tempo:**
 
-- Registros: nome único por construção, PR só adiciona, entra em qualquer `main`. **Sem conflito.** Corrida de push se resolve rebaseando o commit único (3 tentativas).
-- Derivados: um escritor serializado. **Sem conflito.**
-- Conhecimento: conflito real é possível e desejado. Duas pessoas mudando o mesmo spec é conversa humana. Mitigações: um dono por pasta de bet, arquivos pequenos (um ADR, um slice, um record de reunião por arquivo), slice sem status editável à mão, e o `kb-check` avisa quando um PR de conhecimento está aberto há mais de 48 h e o alvo mudou.
+- Registros: o nome é único por construção e o PR só adiciona, então entra em qualquer `main` sem conflito. Corrida de push se resolve rebaseando o commit único (3 tentativas).
+- Derivados: um escritor serializado, então também não há conflito.
+- Conhecimento: conflito real é possível e desejado, porque duas pessoas mudando o mesmo spec precisam conversar. Mitigações: um dono por pasta de bet, arquivos pequenos (um ADR, um slice, um record de reunião por arquivo), slice sem status editável à mão, e o `kb-check` avisa quando um PR de conhecimento está aberto há mais de 48 h e o alvo mudou.
 - Jira: `t0 jira sync` é idempotente e chaveado pelo `uid` do slice. Duas execuções convergem. A chave volta como registro `jira-linked` e só o `kb-render` grava `jira:`.
 
 **Registro de passo** (`type: Step`):
@@ -436,17 +436,17 @@ $ t0 slice start PAY-130
 
 ### Kiro
 
-`kiro ~/ws/payments` (IDE) ou `kiro-cli chat` na mesma pasta. O AGENTS.md entra sempre. O Session Start re-calcula o delta, e o steering `t0.md` inclui `.t0/context.md` ("card em dia"). As skills vêm do power: `/slice-build PAY-132`, implementa em `web/`, `t0 pr`. O web #977 sai com `Depends-on: t0/payments-api#412` e `Merge-order: 3/3`. Ela pergunta "como a gente nomeou erro de limite na bet do gateway?", e o `kb_search` responde. O Agent Stop empurra os registros. Nenhum `.kiro/specs` é criado. A bet no KB é o único spec.
+`kiro ~/ws/payments` (IDE) ou `kiro-cli chat` na mesma pasta. O AGENTS.md entra sempre. O Session Start re-calcula o delta, e o steering `t0.md` inclui `.t0/context.md` ("card em dia"). As skills vêm do power: `/slice-build PAY-132`, implementa em `web/`, `t0 pr`. O web #977 sai com `Depends-on: t0/payments-api#412` e `Merge-order: 3/3`. Ela pergunta "como a gente nomeou erro de limite na bet do gateway?", e o `kb_search` responde. O Agent Stop empurra os registros. Nenhum `.kiro/specs` é criado, porque a bet no KB é o único spec.
 
 **Bet paralela.** No meio da tarde cai a bugfix BET-051 no `api`. Como já tem um agente rodando no `api/` da BET-042, ela roda `t0 bet start BET-051 --isolate` e trabalha em `~/ws/payments@BET-051/`, com card próprio e worktrees próprias.
 
-**Fim da bet.** Os três slices mergeados. O `kb-render` move a Feature PAY-123 para Done quando o change set inteiro fecha. A Ana abre o PR de conhecimento do `bet-ship`, e `t0 bet close` limpa worktrees e spool.
+**Fim da bet.** Com os três slices mergeados, o change set inteiro fecha e o `kb-render` move a Feature PAY-123 para Done. A Ana abre o PR de conhecimento do `bet-ship`, e `t0 bet close` limpa worktrees e spool.
 
 ---
 
 ## 6. O que o toolkit (`t0-toolkit`) implementa
 
-**CLI `t0`.** Um pacote, sem daemon, fixado e instalado pelo registry interno do banco.
+**CLI `t0`.** É um pacote só, sem daemon, fixado e instalado pelo registry interno do banco.
 
 1. `install --user`: plugin nas três ferramentas (marketplace do Claude, `copilot plugin install`, power do Kiro) ou cópia das skills para os diretórios de usuário; configs de usuário com caminhos absolutos (`instructionFiles`, `permissions.additionalDirectories`, `~/.copilot/instructions/t0.instructions.md`, `~/.kiro/steering/t0.md`, configs MCP de usuário quando não há plugin).
 2. `ws init|sync|status`: leitor do manifesto (`workspace:` de `workspace.md`), clone com pulo de 403, sync ff-only, geração de `AGENTS.md`, `.t0/*`, `.vscode/*`, `.kiro/*`.
@@ -507,9 +507,9 @@ $ t0 slice start PAY-130
 | 11 | Registros nunca empurrados (spool esquecido no notebook) | `kb status` e o spool no `ws status`. Os hooks de Stop empurram. `bet close` recusa com spool da bet | `t0 kb push` |
 | 12 | PR de registro falha (segredo, frontmatter, edição em vez de adição) | `kb-check --lane records` falha. O PR fica aberto e atribuído ao autor | Corrigir e re-empurrar. Segredo = rotação pelo processo do banco |
 | 13 | Auto-merge negado pela política do banco | PRs `rec/*` parados. O doctor checa o ruleset | Ligar o modo lote horário com o Flow Steward |
-| 14 | Duas pessoas editam o mesmo spec | Conflito git normal no PR de conhecimento. O `kb-check` avisa alvo que mudou com PR aberto há mais de 48 h | O dono resolve. É desejado |
+| 14 | Duas pessoas editam o mesmo spec | Conflito git normal no PR de conhecimento. O `kb-check` avisa alvo que mudou com PR aberto há mais de 48 h | O dono resolve; esse conflito é desejado |
 | 15 | Alguém edita arquivo ou chave derivada | Hook PreToolUse (local) e `kb-check` (servidor) | Rejeitado. O `kb-render` regenera |
-| 16 | Jira diverge do KB | Reconcile noturno → relatório de drift no digest | Re-sync. Conteúdo é do KB |
+| 16 | Jira diverge do KB | Reconcile noturno → relatório de drift no digest | Re-sync, porque o conteúdo é do KB |
 | 17 | Manifesto diverge da realidade (repo novo não listado, repo arquivado) | O `t0-pr-check` de cada repo confere se o próprio remote está em algum `workspace.md`. `ws sync` avisa remote arquivado ou renomeado. `kb-check` compara `product.md` com o manifesto | PR de conhecimento no `workspace.md` |
 | 18 | Card estoura o orçamento | O renderer corta de baixo e mantém 1 a 3. O `kb-check` renderiza o card de toda bet ativa e falha acima de 8.000 chars | Dividir os critérios de aceite ou encurtar o intent |
 | 19 | Cloud agent rodou sem KB (setup steps desligados, MCP ausente) | Instrução "pare e diga KB indisponível". `t0 pr check` avisa sem `KB-Context` | Corrigir a config do repo. Conferir com `t0 doctor --repo` |
@@ -527,5 +527,5 @@ Cada item tem dono e um teste de meia hora numa máquina ou no GHE do banco. Nen
 - Copilot CLI e Kiro: se o stdout do hook de início de sessão vira contexto.
 - Copilot no VS Code: hooks de plugin rodando, task `folderOpen`, `git.repositoryScanMaxDepth`.
 - Kiro: `#[[file:.t0/context.md]]` resolvido depois do hook de Session Start; power com `.claude-plugin/` e `hooks/` carregando.
-- GHE: auto-merge de PR de registro com 0 aprovações e CODEOWNERS só nos caminhos de conhecimento; App KB-writer como bypass do ruleset para o `kb-render`; token de App com permissões reduzidas; status de workflow agendado valendo como check obrigatório; integração GitHub–Jira; push protection.
+- GHE: auto-merge de PR de registro com 0 aprovações e CODEOWNERS só nos caminhos de conhecimento; App KB-writer como bypass do ruleset para o `kb-render`; token de App com permissões reduzidas; status de workflow agendado valendo como check obrigatório; integração entre GitHub e Jira; push protection.
 - `~` em `permissions.additionalDirectories`: não verificado, por isso o `t0` grava sempre caminho absoluto.

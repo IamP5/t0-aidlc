@@ -61,11 +61,11 @@ t0-toolkit/
   docs/adr/                            # toolkit ADRs (0001 python, 0002 profile-in-kb, 0003 three lanes)
 ```
 
-Two manifests, one directory: Claude reads `.claude-plugin/plugin.json`, Copilot CLI prefers root `plugin.json` (Agent Plugins) and also reads the Claude hooks file, Kiro reads root `plugin.json` + `skills/` + `mcp.json` and is expected to ignore `.claude-plugin/` and `hooks/` (to verify, workspace-pattern §8). `t0 gen --check` keeps the two manifests' `name`/`version`/`description` equal.
+Both manifests live in one directory. Claude reads `.claude-plugin/plugin.json`, Copilot CLI prefers root `plugin.json` (Agent Plugins) and also reads the Claude hooks file, Kiro reads root `plugin.json` + `skills/` + `mcp.json` and is expected to ignore `.claude-plugin/` and `hooks/` (to verify, workspace-pattern §8). `t0 gen --check` keeps the two manifests' `name`/`version`/`description` equal.
 
 ## KB template: `templates/okf-kb/` (→ `t0-kb`)
 
-Only what the template needs to be a conformant, runnable bundle on day one. Everything a team adds follows the same patterns. All paths bundle-absolute.
+The template holds only what it needs to be a conformant, runnable bundle on day one. Everything a team adds follows the same patterns. All paths are bundle-absolute.
 
 ```
 okf-kb/

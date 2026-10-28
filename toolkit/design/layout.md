@@ -73,9 +73,9 @@ t0-toolkit/
 
 Packaging bets:
 
-- **One wheel plus one zipapp.** `pipx install t0-toolkit` from the internal registry is the default. `t0.pyz`, built with shiv and carrying vendored PyYAML and mcp, is the fallback for laptops without pipx. Both expose the same `t0` command.
-- **The plugin directory contains no Python.** Every hook and the MCP server call `t0` on PATH. `t0 doctor` verifies PATH as each tool sees it, which covers the cases where the IDE was launched from the Dock or from a GUI.
-- **Version single-sourced.** The plugin version equals the package version. `t0 doctor` warns when the plugin and the CLI differ.
+- One wheel plus one zipapp. `pipx install t0-toolkit` from the internal registry is the default. `t0.pyz`, built with shiv and carrying vendored PyYAML and mcp, is the fallback for laptops without pipx. Both expose the same `t0` command.
+- The plugin directory contains no Python. Every hook and the MCP server call `t0` on PATH. `t0 doctor` verifies PATH as each tool sees it, which covers the cases where the IDE was launched from the Dock or from a GUI.
+- The version has a single source: the plugin version equals the package version. `t0 doctor` warns when the plugin and the CLI differ.
 
 ## OKF KB template `templates/okf-kb/` (becomes `t0-kb`)
 

@@ -4,7 +4,7 @@ Arena B (multi-repo workspace + KB as context). Output: `methodology/workspace-p
 
 **Base.** Candidate 1. Its floor is a generated root `AGENTS.md` that all three tools read natively. Write-back uses three lanes: add-only uniquely named records, reviewed knowledge PRs with CODEOWNERS, and derived files with one serialized writer. No hosted service on day one.
 
-**Judge verdict.** Cross-judge totals: C1 28, C2 21. C1 won on write-back safety with 10 concurrent writers (W4) and least machinery (W5). C2 won on workspace ergonomics and the manifest-as-concept idea.
+**Judge verdict.** Cross-judge totals: C1 28, C2 21. C1 won on write-back safety with 10 concurrent writers (W4) and least machinery (W5); C2 won on workspace ergonomics and the manifest-as-concept idea.
 
 ## Grafts from candidate 2
 
@@ -36,6 +36,6 @@ Arena B (multi-repo workspace + KB as context). Output: `methodology/workspace-p
 - C2 lane 1 (direct push to `main` with `merge=union`, the hidden `kb/.journal` worktree, `tasks.md` checkbox state). It puts shared hand-edited files on the concurrent path and has no check before landing.
 - C2 hosted HTTP `t0-kb` server with `COPILOT_MCP_KB_TOKEN`. It is a service needing security review on day one. A local stdio server plus a read-only `.kb/` checkout covers cloud and CI.
 - C2 multi-root `.code-workspace` as the default (undocumented Copilot discovery). C2 per-repo committed adapter files (`.mcp.json`, `.github/hooks`, `.kiro/settings`) in every repo.
-- C2's `log.md` "most recent entry" bet guess. A wrong bet is worse than no bet.
+- C2's `log.md` "most recent entry" bet guess. Resolving the wrong bet does more harm than resolving none.
 - C1 read-only base clones under `repos/` with per-bet folders as the default. C1 `repository_dispatch` re-runs. C1 `Read(~/t0/**)` with a tilde path. C1 rewriting `AGENTS.md` at session start.
 - C1 `prepare-commit-msg` template per worktree. Skills add commit trailers instead.

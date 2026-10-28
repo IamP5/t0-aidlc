@@ -51,7 +51,7 @@ sources:
 
 **Question.** The team asked: "Can we have the OKF repo with git submodules for our project repos? Is there a better strategy?"
 
-**Short answer.** Yes, it works mechanically. It is the wrong direction for this team, though. It makes the KB repo carry code pointers it does not own, and every agent and developer pays the submodule tax (detached HEAD, pointer bumps, recursive init, access failures) on every task. A better setup is a **manifest-driven workspace**: a small manifest per product (which can live in the KB repo) plus a bootstrap script. The script clones the KB and the product repos as siblings, and the agent config for the workspace root is generated. Product repos then reference bets by ID. For CI and remote agents, the KB is also served read-only over MCP. See §9.
+**Short answer.** Yes, it works mechanically, but it is the wrong direction for this team. It makes the KB repo carry code pointers it does not own, and every agent and developer pays the submodule tax (detached HEAD, pointer bumps, recursive init, access failures) on every task. A better setup is a **manifest-driven workspace**: a small manifest per product (which can live in the KB repo) plus a bootstrap script. The script clones the KB and the product repos as siblings, and the agent config for the workspace root is generated. Product repos then reference bets by ID. For CI and remote agents, the KB is also served read-only over MCP. See §9.
 
 Provenance tags: **(web: id)** means a source in frontmatter that I actually fetched. **(inferred)** is my own reasoning or general knowledge that I did not verify against a source in this session.
 
@@ -87,9 +87,15 @@ Provenance tags: **(web: id)** means a source in frontmatter that I actually fet
 
 **Access control.** `.gitmodules` exposes every product repo URL to anyone who can read the KB. A dev without access to one repo gets a hard failure on `submodule update --init` unless they hand-pick paths (inferred). The KB, which should be the most widely readable artifact, ends up gated by the least readable product.
 
-**Failure modes.** Lost detached-HEAD commits. Stale pointers, where the KB pins code from weeks ago and agents reason over old code. Forgotten `--recurse-submodules`, which leaves empty directories and an agent concluding "the repo is empty". Pointer-bump merge conflicts. KB history drowned in "bump api" commits. And one product's access policy blocks KB clones.
+**Failure modes.**
+- Commits made on a detached HEAD get lost.
+- Pointers go stale: the KB pins code from weeks ago and agents reason over old code.
+- Someone forgets `--recurse-submodules`, which leaves empty directories, and an agent concludes "the repo is empty".
+- Pointer bumps cause merge conflicts.
+- KB history fills up with "bump api" commits.
+- One product's access policy blocks KB clones.
 
-**Verdict.** It works, but it inverts ownership. The KB ends up versioning code. Avoid it.
+**Verdict.** It works, but it inverts ownership, because the KB ends up versioning code. Avoid it.
 
 ## B. Inverse: each product repo includes the KB (submodule or subtree)
 
@@ -98,7 +104,7 @@ Provenance tags: **(web: id)** means a source in frontmatter that I actually fet
 **Pros.** Any session opened in a product repo has the KB on disk, and product CI can lint spec references against it. Access control is simple because the KB is broadly readable.
 
 **Cons.**
-- **KB freshness is the killer.** Each product repo pins its own KB SHA, so six repos can sit on six different versions of the methodology and bet specs. Ritual outputs land in the KB daily, and a pointer that is days old means the agent codes against a stale spec (inferred).
+- **KB freshness is the main problem.** Each product repo pins its own KB SHA, so six repos can sit on six different versions of the methodology and bet specs. Ritual outputs land in the KB daily, and a pointer that is days old means the agent codes against a stale spec (inferred).
 - A KB edit made from a product session, like updating `tasks.md` while coding, has to be committed inside the submodule, which is detached by default (web: git-book-submodules), pushed to the KB, and then bumped in the product. That is three steps every time.
 - You need bump automation, a bot that opens a "bump KB" PR in 6 repos on every KB merge, which means a lot of PR noise. Many teams turn the automatic bump off and then the pointers go stale (inferred).
 - Context: the agent sees one product repo plus the KB, but not the sibling repos the bet also touches.
@@ -128,9 +134,9 @@ All of these share one model. A **manifest** lists repos (and optionally revisio
 | **`west`** (Zephyr) | `west.yml`: `projects` with `revision` (branch, tag, SHA or PR ref), `import`, `group-filter` | `west update` checks out pinned revisions **as detached HEAD by default** "to avoid conflicting with local branch names". `--freeze` pins every project to a SHA. Groups make projects inactive, so they are skipped (web: west-manifest). Zephyr built west because submodules "require hardcoding the paths", can't track the latest HEAD, and are hard for downstreams to override (web: west-why). |
 | **`meta`** | `.meta` JSON listing projects, with child dirs gitignored | `meta git clone` clones the parent and all children. `meta exec "<cmd>" --parallel`, `--include-only`. Node plugins (web: meta). |
 | `gita`, `mu-repo`, `vcstool`, `myrepos` (`mr`) | gita: registered paths. vcstool: `.repos` YAML. mr: `.mrconfig` | Bulk status/pull/exec across many clones. vcstool (ROS) has a `.repos` manifest with versions. None do cross-repo PRs (inferred; not fetched this session). |
-| **Plain workspace repo** | `workspace.yaml` plus `bootstrap.sh` (about 50 lines: clone if missing, fetch otherwise) | Zero dependencies and fully auditable, which matters for bank tooling approval. The script can skip repos that return 403 and keep going (inferred). |
+| **Plain workspace repo** | `workspace.yaml` plus `bootstrap.sh` (about 50 lines: clone if missing, fetch otherwise) | No dependencies and fully auditable, which matters for bank tooling approval. The script can skip repos that return 403 and keep going (inferred). |
 
-**Day to day (devs).** `./bootstrap payments` gives you `~/ws/payments/{kb,api,web,worker,...}`, all on normal branches, and you work in each repo as usual. Repos the user can't read are skipped with a warning (graceful under per-repo ACLs). There are no pointer bumps unless you choose to pin.
+**Day to day (devs).** `./bootstrap payments` gives you `~/ws/payments/{kb,api,web,worker,...}`, all on normal branches, and you work in each repo as usual. The script skips repos the user can't read and prints a warning, so per-repo ACLs don't break the setup. There are no pointer bumps unless you choose to pin.
 
 **Day to day (agents).** Start the agent at the workspace root, or in one repo with `--add-dir ../kb ../web`. Claude Code supports `--add-dir` / `additionalDirectories` for "a separately checked-out repository". Note that `additionalDirectories` **never** loads the added dir's CLAUDE.md or skills. `--add-dir` loads skills, and loads CLAUDE.md only with `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` (web: cc-large). A workspace root that is not itself a git repo has no git context for worktrees. Per-task worktrees then have to be created per repo, or the root has to be a tiny git repo itself (inferred).
 
@@ -140,7 +146,7 @@ All of these share one model. A **manifest** lists repos (and optionally revisio
 
 **Failure modes.** Siblings at different points in time ("my api is from last week"). Fix this with a `ws sync` step at session start. With west/repo, people may not realise they're on a detached pinned revision (web: west-manifest). Manifests can also drift from reality when a new repo is added and nobody updates the manifest (inferred).
 
-**Verdict.** This is the right primitive. Use plain-script or `meta` for a 10-person team. `west` and `repo` are heavier than needed. `repo` effectively requires Gerrit.
+**Verdict.** This is the right building block. For a 10-person team, use a plain script or `meta`. `west` and `repo` are heavier than needed, and `repo` effectively requires Gerrit.
 
 ## E. Monorepo consolidation per product (Nx, Turborepo, Bazel)
 
@@ -164,7 +170,7 @@ All of these share one model. A **manifest** lists repos (and optionally revisio
 
 **Cons.** Agents don't see KB files unless they call the tool. "Every interaction" then depends on hooks or instructions that force the call. A `SessionStart` hook can print context into the session (web: cc-large). Writing back to the KB (ritual records, task status) needs a write path with review, so prefer PRs to the KB repo over direct writes. It is also one more service to run and get approved in a bank (inferred).
 
-**Verdict.** It is the best channel for **CI and remote agents**, and a good complement locally. On its own it is weaker for heavy interactive spec writing, where having files on disk is better.
+**Verdict.** It is the best channel for **CI and remote agents**, and a good complement locally. On its own it is weaker for heavy interactive spec writing, which goes better with the files on disk.
 
 ## G. Hybrids (recommended shape)
 
@@ -183,7 +189,7 @@ kb/                         # OKF bundle (own repo, broadly readable)
   .claude/settings.json     # GENERATED: additionalDirectories, claudeMdExcludes, SessionStart hook
 ```
 
-- The generated root AGENTS.md is a **map, not a manual**, in line with the OpenAI harness pattern (web: openai-harness). It points to `kb/methodology/`, `kb/bets/<id>/`, the glossary and ADRs, and lists each repo's role.
+- The generated root AGENTS.md is a short **map** rather than a full manual, following the OpenAI harness pattern (web: openai-harness). It points to `kb/methodology/`, `kb/bets/<id>/`, the glossary and ADRs, and lists each repo's role.
 - A `SessionStart` hook prints the current bet (derived from the branch name `bet/PAY-123-*`) and its `intent.md`/`spec.md` paths into context (mechanism: web: cc-large; usage inferred).
 - Each product repo keeps its own thin AGENTS.md covering build/test commands, plus one line: "Bet specs live in the KB; if `../kb` exists read `../kb/bets/<id>/`, else use the `kb` MCP server." That way a single-repo session degrades gracefully.
 - An MCP server (F) serves CI and remote agents.
@@ -236,4 +242,7 @@ Scale: ++ strong, + ok, 0 neutral, - weak, -- poor. "Agent context" means the ag
 5. **Re-evaluate E per product after 2-3 bets.** If a product's bets touch 3 or more of its repos most of the time, and those repos share owners, pipeline and ACL population, consolidate that product into a monorepo. Keep the KB separate regardless.
 6. Use subtree (C) only to vendor a **tagged, read-only methodology/glossary release** into repos that must build offline. Don't use it for living bet specs.
 
-Open questions for the team: Is the forge GitHub, GitLab or Bitbucket? That decides whether linked-PR checks are a native feature or a custom CI step. Will security approve a long-lived MCP service? And which repos have restricted read populations? Those repos decide whether the E candidates are real.
+Open questions for the team:
+- Is the forge GitHub, GitLab or Bitbucket? That decides whether linked-PR checks are a native feature or a custom CI step.
+- Will security approve a long-lived MCP service?
+- Which repos have restricted read populations? Those repos decide whether the E candidates are real.

@@ -12,7 +12,7 @@
    - Claude-only keys (`allowed-tools`, `model`, `context: fork`) are allowed only where degrading is harmless, and `gen --check` warns about them.
 3. **Cycle skills are user-invoked** (`disable-model-invocation: true`), so they cost nothing in the always-on skill listing. Only primitives are model-invoked:
    - `grilling`, `domain-modeling`, `prototype`, `tdd`, `code-review`, `pr`, `diagnose`, `kb-record`
-   - `gen --check` enforces ≤25 model-visible skills and ≤7,500 description chars **per tool**. Kiro may ignore `disable-model-invocation`, so its budget counts every skill (risk noted).
+   - `gen --check` enforces ≤25 model-visible skills and ≤7,500 description chars per tool. Kiro may ignore `disable-model-invocation`, so its budget counts every skill (risk noted).
 4. **Generated regions** (`<!-- t0:gen:header -->`, `<!-- t0:gen:footer -->`) are injected by `t0 gen` from `plugin/skills/_shared/`. Nobody edits them per skill. The single source of the shared header and footer is:
    - **Header:** "Escreva toda saída para humanos em pt-BR. Critérios de aceite em bullets, nunca Gherkin. Não edite chaves derivadas nem index.md/log.md/changeset.md. Para usar outra skill, invoque-a pelo nome; se a ferramenta não permitir, leia `skills/<nome>/SKILL.md` deste plugin e siga."
    - **Header, when `metadata.t0.requires_bet: true`:** "Rode `t0 bet detect --json`. Sem bet resolvida, NÃO escreva código: peça a bet ou rode `t0 bet use`."
@@ -89,7 +89,7 @@ Legend for "Ships": **0.1** = this session, **0.2** = next cycle (pilot pod), **
 | `adoption-report` | Measure adoption against the KB Policy floors | `report adoption --commit` | none | new | 0.3 |
 | `verify-app-create` | Generate the repo-local `verify-<app>` skill | `log` | PS `create-verification-skill` (+ `maintain-…` for Sweeper) | fork (paths `.cursor` → `.claude`/`.github`, `draft-pr`) | 0.3 |
 
-**Not skills, on purpose** (CLI or CI only, so the listing stays small):
+**Not skills** (CLI or CI only, so the listing stays small):
 - `kb-check` (`t0 kb check`)
 - `digest` (CI)
 - `metrics-snapshot` (inside `ritual demo close`)

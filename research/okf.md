@@ -56,7 +56,7 @@ Provenance tags used throughout:
 - **Other things named OKF.** "OKF/OKFN" is also the common abbreviation for the **Open Knowledge Foundation**, which publishes Frictionless Data Package and is unrelated. Search results note that metadata on one of Google's own v0.2 pages mislabels the spec as an Open Knowledge Foundation spec. **The local usage matches Google's OKF**: SKILL.md links `GoogleCloudPlatform/knowledge-catalog/tree/main/okf`. (local skill; web: search results such as [specification.website](https://specification.website/spec/agent-readiness/okf-bundle/) and [nowledge.co](https://nowledge.co/blog/open-knowledge-format))
 - **Third-party ecosystem.** Exporters such as Nowledge Mem and Hjarni, plus a skills.sh "okf-open-knowledge-format" skill. These come from secondary sources only and were not verified. (web: search results)
 
-### Drift between our local harness and the current spec (important)
+### Drift between our local harness and the current spec
 
 | Topic | Local skill encodes | Current spec (v0.2) |
 |---|---|---|
@@ -298,19 +298,19 @@ docs/                                  # bundle root (or one bundle per area, se
 
 | Type | Extra profile keys (type) | `state` enum | `stale_after` |
 |---|---|---|---|
-| **Principle** | `rationale_ref?` (path) | — | no |
+| **Principle** | `rationale_ref?` (path) | none | no |
 | **Practice** | `applies_to: [project-paths or "all"]`, `level: must\|should\|may` | adopted \| trial \| retired | yes (review cadence) |
-| **Playbook** | `trigger` (string), `steps_owner` (actor) | — | yes |
+| **Playbook** | `trigger` (string), `steps_owner` (actor) | none | yes |
 | **Policy** | `effective_from` (datetime), `approved_by` (actor) | proposed \| in-force \| retired | yes |
 | **Person** | `handle` (string, matches `human:<handle>`), `teams: [team:…]`, `skills: [string]`. **No personal data beyond work handle** (G9). | active \| alumni | no |
-| **Role Archetype** | `responsibilities: [string]`, `rotates: bool`, `rotation?` (path to Rotation) | — | no |
-| **Rotation** | `role` (path to Role Archetype), `cadence` (ISO 8601 duration, e.g. `P2W`), `roster: [human:…]`, `assignments: [{who: human:…, from: datetime, to: datetime}]` (G7) | — | **yes**: set to the end of the current assignment so a stale rotation is detectable |
+| **Role Archetype** | `responsibilities: [string]`, `rotates: bool`, `rotation?` (path to Rotation) | none | no |
+| **Rotation** | `role` (path to Role Archetype), `cadence` (ISO 8601 duration, e.g. `P2W`), `roster: [human:…]`, `assignments: [{who: human:…, from: datetime, to: datetime}]` (G7) | none | **yes**: set to the end of the current assignment so a stale rotation is detectable |
 | **Ritual** | `cadence` (ISO 8601 duration or RRULE string), `duration` (ISO 8601), `facilitator` (actor, often `role:`), `participants: [actor]`, `inputs: [path]`, `outputs: [path]` | active \| paused \| retired | yes |
 | **Project** / **Product** | `project_id` (slug), `lead` (actor), `repo?` (URL), `started` (datetime) | discovery \| building \| live \| sunset | no |
 | **Bet** | `project` (path), `appetite` (ISO 8601 duration), `hypothesis` (string), `success_metric` (string), `cycle_start`, `cycle_end` (datetimes), `decision_by` (actor) | proposed \| active \| shipped \| killed \| extended | **yes** (= `cycle_end`) |
 | **ADR** | `number` (int), `project` (path or "org"), `deciders: [actor]`, `decided_at?` (datetime) | proposed \| accepted \| superseded \| rejected | no |
-| **Glossary Term** | `term` (string), `aliases: [string]`, `avoid: [string]` (banned synonyms), `scope: org \| <project path>` | — | no |
-| **Research** / **Reference** | `sources` required (spec family) | — | no; frozen, so `status: stable` and never edited |
+| **Glossary Term** | `term` (string), `aliases: [string]`, `avoid: [string]` (banned synonyms), `scope: org \| <project path>` | none | no |
+| **Research** / **Reference** | `sources` required (spec family) | none | no; frozen, so `status: stable` and never edited |
 
 **Mapping rules:**
 - Domain lifecycle goes in `state`. Spec `status` is derived from it:
