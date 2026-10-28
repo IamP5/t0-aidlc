@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metodologia t0</title>
+<style>
+/* ===========================================
+   THEME TOKENS
+   Light is the default. Dark comes from the OS
+   preference unless the viewer picked a theme,
+   and from data-theme="dark" when they did.
+   =========================================== */
+:root {
+  --bg: #FFFFFF;
+  --bg-soft: #F7F5F5;
+  --surface: #FFFFFF;
+  --line: #E6E1E1;
+  --text: #1A1A1A;
+  --muted: #6B6B6B;
+  --red: #CC092F;
+  --red-deep: #9B0020;
+  --magenta: #E1173F;
+  --on-red: #FFFFFF;
+  --tint: rgba(204, 9, 47, 0.07);
+  --tint-strong: rgba(204, 9, 47, 0.13);
+  --code-bg: #F3EFEF;
+  --shadow: 0 1px 2px rgba(26, 26, 26, 0.04), 0 8px 28px rgba(26, 26, 26, 0.06);
+  --stage-bg: #EDEAEA;
+  --slide-bg: var(--bg);
+
+  --font: "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Noto Sans", Arial, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Avenir Next", "Segoe UI", "Helvetica Neue", -apple-system, system-ui, sans-serif;
+  --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121214;
+    --bg-soft: #1C1C1F;
+    --surface: #1C1C1F;
+    --line: #2E2E33;
+    --text: #F2F2F2;
+    --muted: #A9A9B0;
+    --red: #FF3355;
+    --red-deep: #FF6680;
+    --magenta: #FF4D7A;
+    --on-red: #121214;
+    --tint: rgba(255, 51, 85, 0.09);
+    --tint-strong: rgba(255, 51, 85, 0.16);
+    --code-bg: #26262B;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+    --stage-bg: #0A0A0B;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121214;
+  --bg-soft: #1C1C1F;
+  --surface: #1C1C1F;
+  --line: #2E2E33;
+  --text: #F2F2F2;
+  --muted: #A9A9B0;
+  --red: #FF3355;
+  --red-deep: #FF6680;
+  --magenta: #FF4D7A;
+  --on-red: #121214;
+  --tint: rgba(255, 51, 85, 0.09);
+  --tint-strong: rgba(255, 51, 85, 0.16);
+  --code-bg: #26262B;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+  --stage-bg: #0A0A0B;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES
+   (viewport-base.css, included in full)
+   =========================================== */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-viewport { position: fixed; inset: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--slide-bg, #fff); }
+.slide { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; display: block; visibility: hidden; opacity: 0; pointer-events: none; background: var(--slide-bg, #fff); }
+.slide.active, .slide.visible { visibility: visible; opacity: 1; pointer-events: auto; z-index: 1; }
+img, video, canvas, svg { max-width: 100%; max-height: 100%; }
+.deck-controls { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 1000; }
+@media print {
+  html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+  .deck-viewport { position: static; overflow: visible; background: #fff; }
+  .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+  .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; }
+  .slide:last-child { break-after: auto; page-break-after: auto; }
+  .deck-controls, .progress { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+}
+
+/* ===========================================
+   BASE TYPOGRAPHY AND SLIDE FRAME
+   =========================================== */
+body { font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; }
+.slide { padding: 112px 150px 120px 150px; color: var(--text); transition: opacity .45s var(--ease), visibility .45s; }
+/* thin brand rail on the left edge */
+.slide::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: linear-gradient(180deg, var(--red), var(--magenta)); }
+/* soft atmosphere in the corner */
+.slide::after { content: ""; position: absolute; right: -260px; top: -260px; width: 760px; height: 760px; border-radius: 50%; background: radial-gradient(circle, var(--tint-strong), transparent 68%); pointer-events: none; }
+.slide > * { position: relative; z-index: 1; }
+
+.chrome { position: absolute; left: 150px; right: 150px; bottom: 56px; display: flex; justify-content: space-between; font-size: 20px; color: var(--muted); letter-spacing: .02em; z-index: 1; }
+.chrome b { color: var(--red); font-weight: 600; }
+
+.kicker { font-size: 24px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--red); margin-bottom: 28px; display: flex; align-items: center; gap: 18px; }
+.kicker::before { content: ""; width: 48px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--red), var(--magenta)); }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 76px; line-height: 1.06; max-width: 1500px; margin-bottom: 30px; }
+h3 { font-size: 34px; line-height: 1.2; margin-bottom: 14px; }
+.lead { font-size: 34px; line-height: 1.45; color: var(--muted); max-width: 1380px; }
+p { font-size: 28px; line-height: 1.5; }
+.muted { color: var(--muted); }
+.red { color: var(--red); }
+code, .mono { font-family: var(--mono); font-size: .86em; background: var(--code-bg); padding: 2px 10px; border-radius: 8px; color: var(--text); white-space: nowrap; }
+
+ul.list { list-style: none; display: grid; gap: 22px; }
+ul.list li { font-size: 30px; line-height: 1.4; padding-left: 40px; position: relative; }
+ul.list li::before { content: ""; position: absolute; left: 0; top: 17px; width: 16px; height: 4px; border-radius: 2px; background: var(--red); }
+ul.list.sm li { font-size: 26px; padding-left: 34px; }
+ul.list.sm li::before { top: 15px; width: 14px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 40px 42px; box-shadow: var(--shadow); }
+.card.soft { background: var(--bg-soft); box-shadow: none; }
+.card .tag { display: inline-block; font-size: 20px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--red); margin-bottom: 16px; }
+.card p { font-size: 26px; color: var(--muted); }
+
+.grid { display: grid; gap: 32px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.mt { margin-top: 56px; }
+.mt-s { margin-top: 32px; }
+
+.callout { margin-top: 44px; padding: 30px 40px; border-radius: 18px; background: var(--tint); border-left: 6px solid var(--red); font-size: 28px; line-height: 1.45; max-width: 1620px; }
+
+/* ===========================================
+   REVEAL ANIMATION (subtle, staggered)
+   =========================================== */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+.slide.visible .reveal { opacity: 1; transform: none; }
+.slide.visible .d1 { transition-delay: .06s; }
+.slide.visible .d2 { transition-delay: .14s; }
+.slide.visible .d3 { transition-delay: .22s; }
+.slide.visible .d4 { transition-delay: .30s; }
+.slide.visible .d5 { transition-delay: .38s; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { transform: none; transition: opacity .2s linear; }
+}
+
+/* ===========================================
+   TITLE AND CLOSING
+   =========================================== */
+.title-slide { display: flex; flex-direction: column; justify-content: center; }
+.title-slide h1 { font-size: 128px; line-height: 1.0; max-width: 1180px; margin-bottom: 40px; }
+.title-slide h1 .grad { background: linear-gradient(90deg, var(--red), var(--magenta)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.title-slide .lead { font-size: 38px; max-width: 1050px; }
+.bands { position: absolute; right: 0; top: 0; bottom: 0; width: 760px; overflow: hidden; z-index: 0; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%); mask-image: linear-gradient(90deg, transparent 0%, #000 45%); }
+.bands span { position: absolute; right: -200px; width: 900px; height: 110px; transform: rotate(-32deg); border-radius: 60px; background: linear-gradient(90deg, var(--red), var(--magenta)); }
+.bands span:nth-child(1) { top: 140px; opacity: .95; }
+.bands span:nth-child(2) { top: 330px; opacity: .55; }
+.bands span:nth-child(3) { top: 520px; opacity: .28; }
+.bands span:nth-child(4) { top: 710px; opacity: .12; }
+.meta-row { margin-top: 70px; display: flex; gap: 56px; font-size: 24px; color: var(--muted); }
+.meta-row b { display: block; color: var(--text); font-size: 28px; font-weight: 600; margin-top: 6px; }
+
+/* ===========================================
+   STATEMENT SLIDE
+   =========================================== */
+.statement { font-family: var(--font-display); font-size: 104px; line-height: 1.06; font-weight: 700; letter-spacing: -0.025em; max-width: 1500px; }
+.statement em { font-style: normal; color: var(--red); }
+
+/* ===========================================
+   ROLES TABLE
+   =========================================== */
+.roles { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.role { display: grid; grid-template-columns: 420px 300px 1fr; gap: 40px; padding: 26px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.role h3 { font-size: 34px; margin: 0; }
+.role .who { font-size: 24px; color: var(--red); font-weight: 600; }
+.role p { font-size: 26px; color: var(--muted); line-height: 1.45; }
+
+/* ===========================================
+   FLOW DIAGRAM (HTML/CSS)
+   =========================================== */
+.flow { display: grid; grid-template-columns: 1fr 56px 1fr 112px 1fr 112px 1fr 56px 1fr 56px 1fr 112px; align-items: center; margin-top: 90px; }
+.node { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 26px 20px; min-height: 230px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+.node .n { font-size: 20px; font-weight: 700; color: var(--red); letter-spacing: .08em; }
+.node h4 { font-family: var(--font-display); font-size: 29px; line-height: 1.12; }
+.node p { font-size: 20px; line-height: 1.35; color: var(--muted); }
+.arrow { height: 4px; background: var(--line); position: relative; margin: 0 6px; }
+.arrow::after { content: ""; position: absolute; right: -2px; top: -7px; border-left: 14px solid var(--line); border-top: 9px solid transparent; border-bottom: 9px solid transparent; }
+.gate { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.gate .dia { width: 46px; height: 46px; transform: rotate(45deg); border-radius: 10px; background: linear-gradient(135deg, var(--red), var(--magenta)); box-shadow: 0 8px 20px var(--tint-strong); }
+.gate span { font-size: 19px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .06em; }
+.lane { margin-top: 80px; display: grid; grid-template-columns: 270px 1fr; gap: 32px; align-items: center; padding: 28px 36px; border: 2px dashed var(--line); border-radius: 20px; }
+.lane b { font-size: 24px; color: var(--red); letter-spacing: .08em; text-transform: uppercase; }
+.lane p { font-size: 26px; color: var(--muted); }
+.ladder-inline { display: flex; gap: 12px; align-items: center; font-size: 23px; flex-wrap: wrap; }
+.ladder-inline span.pill { background: var(--tint); color: var(--text); padding: 8px 18px; border-radius: 999px; }
+
+/* ===========================================
+   TRACKS
+   =========================================== */
+.track { border-radius: 26px; padding: 52px 56px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+.track.hot { background: linear-gradient(135deg, var(--red), var(--magenta)); color: var(--on-red); border: none; }
+.track.hot ul.list li::before { background: var(--on-red); }
+.track .big { font-family: var(--font-display); font-size: 64px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+.track .sub { font-size: 28px; opacity: .9; margin-bottom: 34px; }
+.track:not(.hot) .sub { color: var(--muted); opacity: 1; }
+
+/* ===========================================
+   DECISIONS
+   =========================================== */
+.decision { position: relative; padding-top: 100px; padding-bottom: 32px; }
+.decision .num { position: absolute; top: 30px; left: 42px; font-family: var(--font-display); font-size: 64px; font-weight: 800; color: var(--red); line-height: 1; }
+.decision h3 { font-size: 44px; margin-bottom: 6px; }
+.decision dl { display: grid; gap: 10px; margin-top: 14px; }
+.decision dt { font-size: 19px; text-transform: uppercase; letter-spacing: .1em; color: var(--red); font-weight: 600; }
+.decision dd { font-size: 25px; line-height: 1.4; color: var(--text); }
+
+/* ===========================================
+   STATS
+   =========================================== */
+.stat .v { font-family: var(--font-display); font-size: 110px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; background: linear-gradient(90deg, var(--red), var(--magenta)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stat .l { font-size: 26px; line-height: 1.4; color: var(--muted); margin-top: 14px; }
+
+/* ===========================================
+   TABLE
+   =========================================== */
+table.t { width: 100%; border-collapse: collapse; font-size: 25px; }
+table.t th { text-align: left; font-size: 19px; text-transform: uppercase; letter-spacing: .1em; color: var(--red); font-weight: 700; padding: 0 20px 16px 0; border-bottom: 2px solid var(--red); }
+table.t td { padding: 19px 20px 19px 0; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.35; }
+table.t td:first-child { font-weight: 650; font-size: 27px; }
+table.t td.m { color: var(--muted); }
+
+/* ===========================================
+   TIME BAR
+   =========================================== */
+.timebar { display: flex; height: 120px; border-radius: 18px; overflow: hidden; margin-top: 56px; }
+.timebar div { display: flex; flex-direction: column; justify-content: center; padding: 0 26px; color: var(--on-red); font-size: 22px; line-height: 1.25; }
+.timebar div b { font-size: 34px; font-family: var(--font-display); }
+.timebar .a { flex: 100; background: var(--red-deep); }
+.timebar .b { flex: 40; background: var(--red); }
+.timebar .c { flex: 30; background: var(--magenta); }
+.timebar .d { flex: 30; background: var(--text); color: var(--bg); }
+
+/* ===========================================
+   TREE / TERMINAL BLOCKS
+   =========================================== */
+.tree { font-family: var(--mono); font-size: 22px; line-height: 1.5; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 20px; padding: 32px 38px; white-space: pre; color: var(--text); }
+.tree .c { color: var(--muted); }
+.tree .k { color: var(--red); font-weight: 700; }
+.chips { display: flex; flex-wrap: wrap; gap: 12px; }
+.chip { font-size: 22px; padding: 9px 18px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.chip.on { background: var(--tint); border-color: transparent; color: var(--text); }
+
+/* ===========================================
+   LANES
+   =========================================== */
+.lane-card { border-top: 8px solid var(--red); }
+.lane-card:nth-child(2) { border-top-color: var(--magenta); }
+.lane-card:nth-child(3) { border-top-color: var(--red-deep); }
+.lane-card h3 { font-size: 40px; }
+.lane-card .row { margin-top: 22px; }
+.lane-card .row small { display: block; font-size: 18px; text-transform: uppercase; letter-spacing: .1em; color: var(--red); font-weight: 700; margin-bottom: 6px; }
+.lane-card .row div { font-size: 25px; line-height: 1.4; }
+
+/* ===========================================
+   SKILL COLUMNS
+   =========================================== */
+.stage-col h3 { font-size: 28px; padding-bottom: 14px; border-bottom: 3px solid var(--red); margin-bottom: 18px; }
+.sk { margin-bottom: 18px; }
+.sk code { font-size: 22px; background: var(--tint); }
+.sk div { font-size: 21px; line-height: 1.35; color: var(--muted); margin-top: 6px; }
+
+/* ===========================================
+   WALKTHROUGH STEPS
+   =========================================== */
+.steps { display: grid; gap: 14px; counter-reset: s; }
+.step { display: grid; grid-template-columns: 62px 1fr; gap: 22px; align-items: start; counter-increment: s; }
+.step::before { content: counter(s); width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 24px; background: var(--tint); color: var(--red); }
+.step.human::before { background: linear-gradient(135deg, var(--red), var(--magenta)); color: var(--on-red); }
+.step .txt { font-size: 25px; line-height: 1.4; padding-top: 8px; }
+.step .txt .muted { font-size: 22px; }
+.legend { display: flex; gap: 30px; font-size: 21px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 22px; height: 22px; border-radius: 50%; vertical-align: -4px; margin-right: 10px; }
+
+/* ===========================================
+   HARNESS LADDER
+   =========================================== */
+.rungs { display: grid; gap: 14px; }
+.rung { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 22px; padding: 22px 28px; border-radius: 16px; background: var(--bg-soft); border: 1px solid var(--line); }
+.rung .i { font-family: var(--font-display); font-size: 40px; font-weight: 800; color: var(--red); }
+.rung b { font-size: 28px; display: block; }
+.rung span { font-size: 22px; color: var(--muted); }
+.rung:nth-child(1) { margin-left: 0; }
+.rung:nth-child(2) { margin-left: 30px; }
+.rung:nth-child(3) { margin-left: 60px; }
+.rung:nth-child(4) { margin-left: 90px; }
+
+/* ===========================================
+   DECK CHROME (outside the stage)
+   =========================================== */
+.progress { position: fixed; left: 0; top: 0; height: 4px; width: 0; z-index: 1001; background: linear-gradient(90deg, #CC092F, #E1173F); transition: width .35s var(--ease); }
+.deck-controls { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px; background: color-mix(in srgb, var(--bg-soft) 88%, transparent); border: 1px solid var(--line); box-shadow: var(--shadow); backdrop-filter: blur(8px); font-family: var(--font); }
+.deck-controls button { appearance: none; border: 0; background: transparent; color: var(--text); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+.deck-controls button:hover { background: var(--tint); }
+.deck-controls button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.deck-controls svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.counter { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 66px; text-align: center; letter-spacing: .04em; }
+.sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+</style>
+</head>
+<body>
+<div class="progress" id="progress" aria-hidden="true"></div>
+
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage" aria-live="polite">
+
+<!-- === 1. TITLE === -->
+<section class="slide title-slide active visible" aria-label="Capa">
+  <div class="bands" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  <div class="kicker reveal d1">Time de Inovação em IA</div>
+  <h1 class="reveal d2">Da ideia à produção <span class="grad">com agentes</span></h1>
+  <p class="lead reveal d3">Como o time trabalha com a metodologia t0, o KB em OKF e o plugin <code>/t0</code>, num fluxo só.</p>
+  <div class="meta-row reveal d4">
+    <div>Pods<b>Dev Tooling, PACO, Portal e Métricas</b></div>
+    <div>Ferramentas<b>Claude Code, Copilot, Kiro</b></div>
+  </div>
+</section>
+
+<!-- === 2. THE RULE === -->
+<section class="slide" aria-label="A regra">
+  <div class="kicker reveal d1">Ponto de partida</div>
+  <p class="lead reveal d2" style="margin-bottom:48px">O agente deixa barato testar uma ideia. Se o processo continuar caro, ele vira o gargalo.</p>
+  <div class="statement reveal d3">Um passo só existe se <em>protege</em> algo ou <em>ensina</em>.</div>
+  <p class="lead reveal d4" style="margin-top:56px">Proteger quer dizer risco técnico, exigência do banco ou adoção pelas squads. Passo que não protege nem ensina sai.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>02</span></div>
+</section>
+
+<!-- === 3. PRINCIPLES === -->
+<section class="slide" aria-label="Princípios">
+  <div class="kicker reveal d1">Princípios</div>
+  <h2 class="reveal d2">Quatro apoios para o resto</h2>
+  <div class="grid g2 mt">
+    <div class="card reveal d2"><span class="tag">Papéis</span><h3>Humanos decidem e verificam. Agentes executam.</h3><p>O dev é dono da intenção, do critério de aceite e da verificação. A digitação e o Jira ficam com o agente.</p></div>
+    <div class="card reveal d3"><span class="tag">Registro</span><h3>O KB é o sistema de registro, e quem grava é o comando.</h3><p>Jira, painel e PR são projeções. Ninguém escreve ata à mão.</p></div>
+    <div class="card reveal d4"><span class="tag">Ordem</span><h3>Protótipo antes de documento.</h3><p>Spec só existe para ideia que sobreviveu a um protótipo.</p></div>
+    <div class="card reveal d5"><span class="tag">Gargalo</span><h3>Atenção humana é o recurso escasso, e ela é medida.</h3><p>1 slice = 1 PR revisável em até 15 min. Primeira resposta de review em até 4h úteis.</p></div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>03</span></div>
+</section>
+
+<!-- === 4. PODS === -->
+<section class="slide" aria-label="Pods">
+  <div class="kicker reveal d1">Organização</div>
+  <h2 class="reveal d2">Três pods, um time</h2>
+  <div class="grid g3 mt">
+    <div class="card reveal d2"><span class="tag">dev-tooling</span><h3 style="font-size:44px">Dev Tooling</h3><p>Agents, skills e CLIs do SDLC para as equipes de produto.</p></div>
+    <div class="card reveal d3"><span class="tag">paco</span><h3 style="font-size:44px">PACO</h3><p>Produto do time para AIDLC e orquestração de agentes. Também cuida da infra de eval.</p></div>
+    <div class="card reveal d4"><span class="tag">portal-metricas</span><h3 style="font-size:44px">Portal do time e Métricas</h3><p>Portal do time e métricas de uso e eficiência da IA na BU, incluindo o painel único.</p></div>
+  </div>
+  <p class="callout reveal d5">Cada pod é um produto no KB, em <code>products/&lt;pod&gt;/</code>, com spec vivo, evals, workspace e as próprias bets.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>04</span></div>
+</section>
+
+<!-- === 5. ROLES === -->
+<section class="slide" aria-label="Papéis">
+  <div class="kicker reveal d1">Papéis</div>
+  <h2 class="reveal d2" style="margin-bottom:44px">Cinco papéis, dois deles em rodízio</h2>
+  <div class="roles">
+    <div class="role reveal d2"><h3>Lead / AI Value Architect</h3><span class="who">Chapter Lead</span><p>Escolhe bets com PM e RTE, cuida da arquitetura transversal e da interface com o ART, decide os degraus de adoção com números.</p></div>
+    <div class="role reveal d3"><h3>Bet Owner</h3><span class="who">1 sênior por pod</span><p>Facilita a daily do pod, decide o que vira bet, aprova o spec e responde pelo resultado.</p></div>
+    <div class="role reveal d3"><h3>Builder</h3><span class="who">todo mundo</span><p>Prototipa, pega slices, orquestra de 2 a 5 sessões de agente em paralelo e revisa PRs.</p></div>
+    <div class="role reveal d4"><h3>Harness Keeper</h3><span class="who">rodízio de 2 semanas</span><p>AGENTS.md, skills, linters, CI e agentes de limpeza. Triagem do "o agente errou". Facilita o Harness Health.</p></div>
+    <div class="role reveal d5"><h3>Flow Steward</h3><span class="who">rodízio de 2 semanas</span><p>Facilita a daily do time e a Retro, cuida da fila de review, mantém Jira e KB coerentes, prepara a Demo.</p></div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>05</span></div>
+</section>
+
+<!-- === 6. ROTATIONS AND JUNIORS === -->
+<section class="slide" aria-label="Rodízio">
+  <div class="kicker reveal d1">Rodízio</div>
+  <h2 class="reveal d2">Todo mundo passa pelos dois papéis rotativos</h2>
+  <div class="grid g2 mt" style="gap:64px">
+    <div class="reveal d3">
+      <ul class="list">
+        <li>A troca acontece no <code>ritual demo close</code>, que grava a Rotation nova no KB.</li>
+        <li>Na primeira vez, júnior roda em par com um sênior.</li>
+        <li>Ninguém segura Harness Keeper e Flow Steward ao mesmo tempo.</li>
+      </ul>
+    </div>
+    <div class="card soft reveal d4">
+      <span class="tag">Três práticas para juniores</span>
+      <ul class="list sm" style="margin-top:8px">
+        <li>Review em par nos primeiros PRs.</li>
+        <li>Seção "Em minhas palavras" em PR de júnior e em todo PR Tier 2, sem colar a explicação do agente.</li>
+        <li>Um slice por quinzena feito sem gerar código com o agente, por escolha da pessoa.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="callout reveal d5">O Harness Keeper é onde o ganho composto aparece: cada erro de agente que vira sensor deixa de custar review para o time inteiro.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>06</span></div>
+</section>
+
+<!-- === 7. FLOW === -->
+<section class="slide" aria-label="Fluxo">
+  <div class="kicker reveal d1">Fluxo</div>
+  <h2 class="reveal d2">Da ideia ao ART em sete etapas</h2>
+  <div class="flow reveal d3" role="img" aria-label="Ideia, protótipo, decisão de aposta, spec e slices, decisão de spec, build e verify, ship, degraus de adoção com decisão de degrau">
+    <div class="node"><span class="n">1</span><h4>Ideia</h4><p>qualquer pessoa, a qualquer hora</p></div>
+    <div class="arrow"></div>
+    <div class="node"><span class="n">2</span><h4>Protótipo</h4><p>minutos a horas, fora do main</p></div>
+    <div class="gate"><div class="dia"></div><span>aposta</span></div>
+    <div class="node"><span class="n">3 e 4</span><h4>Spec + slices</h4><p>em mob, na daily do pod</p></div>
+    <div class="gate"><div class="dia"></div><span>spec</span></div>
+    <div class="node"><span class="n">5</span><h4>Build e Verify</h4><p>1 slice = 1 PR em draft</p></div>
+    <div class="arrow"></div>
+    <div class="node"><span class="n">6</span><h4>Ship</h4><p>merge congela o spec da bet</p></div>
+    <div class="arrow"></div>
+    <div class="node"><span class="n">7</span><h4>Degraus</h4><p>time, 2 ou 3 squads piloto, ART</p></div>
+    <div class="gate"><div class="dia"></div><span>degrau</span></div>
+  </div>
+  <div class="lane reveal d4">
+    <b>Em qualquer etapa</b>
+    <div class="ladder-inline"><span>Agente erra pela 2ª vez</span><span class="red">→</span><span class="pill">Harness Item</span><span class="red">→</span><span class="pill">sensor, regra, skill ou AGENTS.md</span><span class="red">→</span><span class="pill">PR no Harness Health</span></div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>07</span></div>
+</section>
+
+<!-- === 8. TRACKS === -->
+<section class="slide" aria-label="Duas trilhas">
+  <div class="kicker reveal d1">Trilhas</div>
+  <h2 class="reveal d2">Duas trilhas, pelo tamanho do trabalho</h2>
+  <div class="grid g2 mt">
+    <div class="track hot reveal d3">
+      <div class="big">Rápida</div>
+      <div class="sub">ajuste, bugfix ou melhoria que cabe em até 1 dia</div>
+      <ul class="list sm">
+        <li>Sem spec. O slice já nasce com "atual, esperado, o que não muda" e um teste.</li>
+        <li>O Flow Steward ou o Bet Owner aprova a aposta na daily.</li>
+        <li>Um slice, um PR.</li>
+      </ul>
+    </div>
+    <div class="track reveal d4">
+      <div class="big">Bet</div>
+      <div class="sub">o resto, com apetite de até 2 semanas</div>
+      <ul class="list sm">
+        <li>Protótipo, spec, desenho quando precisa, slices.</li>
+        <li>O Bet Owner aprova aposta e spec.</li>
+        <li>O Lead entra quando a bet cruza pods, é Tier 2 ou passa de 1 semana.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="callout reveal d5">Item rápido que precisa de desenho vira bet. Bet que não cabe em 2 semanas vira duas. Superfície pública (MCP, CLI, skill, API) é Tier 2 em qualquer trilha.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>08</span></div>
+</section>
+
+<!-- === 9. THREE DECISIONS === -->
+<section class="slide" aria-label="Três decisões humanas">
+  <div class="kicker reveal d1">Decisões</div>
+  <h2 class="reveal d2" style="margin-bottom:0">Só três decisões são humanas</h2>
+  <div class="grid g3 mt-s">
+    <div class="card decision reveal d2"><span class="num">01</span><h3>Aposta</h3><dl><dt>Quem</dt><dd>Bet Owner na daily do pod. Na rápida, Flow Steward ou Bet Owner.</dd><dt>Registro</dt><dd>Bet <code>active</code> com <code>appetite</code> e <code>verified</code></dd><dt>Como</dt><dd>PR aberto pelo <code>bet-new</code></dd></dl></div>
+    <div class="card decision reveal d3"><span class="num">02</span><h3>Spec</h3><dl><dt>Quem</dt><dd>Bet Owner. Em Tier 2, também o Lead.</dd><dt>Registro</dt><dd>Spec <code>approved</code>, <code>markers_open: 0</code></dd><dt>Como</dt><dd>PR do spec com os slices</dd></dl></div>
+    <div class="card decision reveal d4"><span class="num">03</span><h3>Degrau</h3><dl><dt>Quem</dt><dd>Lead/AIVA, quando os números saem.</dd><dt>Registro</dt><dd>Adoption Report <code>passed</code></dd><dt>Como</dt><dd><code>gate degrau &lt;produto&gt;</code></dd></dl></div>
+  </div>
+  <p class="callout reveal d5" style="margin-top:30px">Aprovar o PR é decidir. O histórico git do KB vira a trilha de auditoria que o banco pede. Build, review e merge ficam com o CI e com o review normal de PR.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>09</span></div>
+</section>
+
+<!-- === 10. NO SPRINT === -->
+<section class="slide" aria-label="Fluxo contínuo">
+  <div class="kicker reveal d1">Ritmo</div>
+  <h2 class="reveal d2">Fluxo contínuo, sem sprint por dentro</h2>
+  <p class="lead reveal d3">Ideia é decidida na daily do pod seguinte ao protótipo. Quem limita o WIP é o review pendente, e PR esperando review passa na frente de slice novo.</p>
+  <div class="grid g4 mt">
+    <div class="stat reveal d2"><div class="v">2</div><div class="l">slices em construção por pessoa, no máximo</div></div>
+    <div class="stat reveal d3"><div class="v">15<span style="font-size:52px"> min</span></div><div class="l">para revisar um PR de slice</div></div>
+    <div class="stat reveal d4"><div class="v">4h</div><div class="l">úteis até a primeira resposta de review</div></div>
+    <div class="stat reveal d5"><div class="v">24h</div><div class="l">de review parado e o bot já sinaliza</div></div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>10</span></div>
+</section>
+
+<!-- === 11. RITUALS === -->
+<section class="slide" aria-label="Rituais">
+  <div class="kicker reveal d1">Rituais</div>
+  <h2 class="reveal d2" style="margin-bottom:40px">Seis rituais, cada um com saída no KB</h2>
+  <table class="t reveal d3">
+    <thead><tr><th>Ritual</th><th>Quando</th><th>Duração</th><th>Facilita</th><th>Saída automática no KB</th></tr></thead>
+    <tbody>
+      <tr><td>Daily do time</td><td>todo dia</td><td>10 min</td><td class="m">Flow Steward</td><td class="m">bloqueios e donos; o bot publica o status antes</td></tr>
+      <tr><td>Daily do pod</td><td>todo dia, logo depois</td><td>30 a 45 min</td><td class="m">Bet Owner</td><td class="m">ideias, decisões, specs em PR</td></tr>
+      <tr><td>Harness Health</td><td>toda semana</td><td>20 min</td><td class="m">Harness Keeper</td><td class="m">Harness Items com PR, casos de eval</td></tr>
+      <tr><td>Demo</td><td>a cada 2 semanas, com o ART</td><td>30 min</td><td class="m">Flow Steward</td><td class="m">bets encerradas, rodízio novo</td></tr>
+      <tr><td>Retro</td><td>uma vez por mês</td><td>60 min</td><td class="m">Flow Steward</td><td class="m">registro; ADR quando a metodologia muda</td></tr>
+      <tr><td>PI / Sense &amp; Respond</td><td>quando o ART marcar</td><td>do ART</td><td class="m">Lead/AIVA</td><td class="m">decisões do ART</td></tr>
+    </tbody>
+  </table>
+  <p class="reveal d4 muted" style="margin-top:28px;font-size:24px">Todo ritual interno abre e fecha com <code>ritual &lt;slug&gt; open|close</code>. O <code>open</code> monta a pauta a partir do KB; o <code>close</code> grava o Ritual Record.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>11</span></div>
+</section>
+
+<!-- === 12. TIME BUDGET === -->
+<section class="slide" aria-label="Conta de tempo">
+  <div class="kicker reveal d1">Conta de tempo</div>
+  <h2 class="reveal d2">Cerca de 3h20 de cerimônia por pessoa a cada 2 semanas</h2>
+  <div class="timebar reveal d3" role="img" aria-label="Daily do time 1h40, Harness Health 40 min, Demo 30 min, meia Retro 30 min">
+    <div class="a"><b>1h40</b>daily do time, 10 × 10 min</div>
+    <div class="b"><b>40 min</b>2 Harness Health</div>
+    <div class="c"><b>30</b>1 Demo</div>
+    <div class="d"><b>30</b>½ Retro</div>
+  </div>
+  <div class="grid g2 mt" style="gap:64px">
+    <div class="reveal d4"><h3>A daily do pod conta como trabalho</h3><p class="muted">É ali que o pod prototipa, especifica e planeja com o agente ao vivo. Ela ocupa o lugar do shaping solitário e do refinamento.</p></div>
+    <div class="reveal d5"><h3>Status quem dá é o bot</h3><p class="muted">Merges, review parado há mais de 24h e travas saem publicados antes da daily. Ritual nenhum serve para status.</p></div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>12</span></div>
+</section>
+
+<!-- === 13. WHERE THINGS LIVE === -->
+<section class="slide" aria-label="O que mora onde">
+  <div class="kicker reveal d1">KB e contexto</div>
+  <h2 class="reveal d2">Cada coisa mora num lugar só</h2>
+  <div class="grid g4 mt">
+    <div class="card reveal d2" style="border-top:8px solid var(--red)"><span class="tag">KB · t0-kb</span><p style="color:var(--text)">Metodologia, time, ideias, produtos com spec vivo, bets, rituais, transcrições redigidas e harness.</p></div>
+    <div class="card reveal d3"><span class="tag">Repos de produto</span><p>Código, testes, <code>evals/</code>, trilha <code>.audit/</code>, <code>AGENTS.md</code> canônico e a skill <code>verify-&lt;app&gt;</code>.</p></div>
+    <div class="card reveal d4"><span class="tag">Jira</span><p>Feature e Story espelhadas pelo CI, status e comentários do ART.</p></div>
+    <div class="card reveal d5"><span class="tag">Painel</span><p>Métricas geradas de Git, CI, Jira, telemetria e KB. Ninguém reporta à mão.</p></div>
+  </div>
+  <p class="callout reveal d5">Se o agente precisa disso para editar código, mora no repo. Se precisa para decidir o que fazer, mora no KB. Conteúdo do KB entra no repo só por link, pelo <code>uid</code>.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>13</span></div>
+</section>
+
+<!-- === 14. BUNDLE TREE === -->
+<section class="slide" aria-label="Bundle OKF">
+  <div class="kicker reveal d1">O bundle OKF</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">O KB do time, pasta por pasta</h2>
+  <div class="grid" style="grid-template-columns: 1.15fr 1fr; gap:48px">
+<div class="tree reveal d3"><span class="k">t0-kb/</span>
+  index.md  profile.md  log.md   <span class="c">gerados</span>
+  .github/CODEOWNERS             <span class="c">donos da raia de conhecimento</span>
+  <span class="k">methodology/</span>  practices/  policies/  adr/
+  <span class="k">templates/</span>    idea bet spec slice adr ...
+  <span class="k">team/</span>         people/  roles/  rotations/
+  <span class="k">ideas/</span>        IDEA-NNNN.md
+  <span class="k">rituals/</span>      &lt;slug&gt;/ritual.md + AAAA-MM-DD.md
+  <span class="k">transcripts/</span>  só redigidas
+  <span class="k">steps/</span>        registros fora de uma bet
+  <span class="k">glossary/</span>     termos do time
+  <span class="k">harness/</span>      HI-NNNN.md  budget.md
+  <span class="k">products/</span>&lt;pod&gt;/
+    product.md  workspace.md  evals.md
+    adr/  adoption/
+    bets/BET-NNN/  bet.md  spec.md  slices/</div>
+    <div class="reveal d4">
+      <h3>Tipos enxutos, frontmatter comum</h3>
+      <p class="muted" style="font-size:24px;margin-bottom:22px">Todo arquivo carrega <code>type</code>, <code>uid</code>, <code>owner</code>, <code>status</code> e, nas decisões, <code>verified</code> com quem aprovou.</p>
+      <div class="chips">
+        <span class="chip on">Idea</span><span class="chip on">Bet</span><span class="chip on">Spec</span><span class="chip on">Slice</span><span class="chip">ADR</span><span class="chip">Ritual Record</span><span class="chip">Transcript</span><span class="chip">Harness Item</span><span class="chip">Product</span><span class="chip">Workspace</span><span class="chip">Eval Suite</span><span class="chip">Adoption Report</span><span class="chip">Policy</span><span class="chip">Template</span><span class="chip">Person</span><span class="chip">Role</span><span class="chip">Rotation</span><span class="chip">Glossary Term</span><span class="chip">Step</span>
+      </div>
+      <p class="muted mt-s" style="font-size:24px">A bet é spec-first e o produto é spec-anchored: no ship, o spec da bet congela e o conteúdo vivo migra para <code>products/&lt;p&gt;/spec.md</code>.</p>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>14</span></div>
+</section>
+
+<!-- === 15. WRITE LANES === -->
+<section class="slide" aria-label="Três raias de escrita">
+  <div class="kicker reveal d1">Escrita no KB</div>
+  <h2 class="reveal d2">Três raias, zero conflito entre 10 pessoas</h2>
+  <div class="grid g3 mt">
+    <div class="card lane-card reveal d2"><h3>Registros</h3>
+      <div class="row"><small>O quê</small><div><code>t0 log</code>, decisões em voo, eventos de PR</div></div>
+      <div class="row"><small>Como entra</small><div>arquivo novo com nome único em <code>steps/</code>, num PR de lote diário aprovado pelo Flow Steward</div></div>
+    </div>
+    <div class="card lane-card reveal d3"><h3>Conhecimento</h3>
+      <div class="row"><small>O quê</small><div>ideia, spec, slices, ADR, glossário, rituais, transcrições redigidas</div></div>
+      <div class="row"><small>Como entra</small><div>PR revisado com CODEOWNERS, na branch <code>bet/BET-NNN/&lt;handle&gt;</code></div></div>
+    </div>
+    <div class="card lane-card reveal d4"><h3>Derivados</h3>
+      <div class="row"><small>O quê</small><div><code>index.md</code>, <code>log.md</code>, <code>changeset.md</code>, chaves <code>jira:</code> e <code>state</code></div></div>
+      <div class="row"><small>Como entra</small><div>só o workflow <code>kb-render</code>, serializado</div></div>
+    </div>
+  </div>
+  <p class="callout reveal d5">Como ninguém edita o mesmo arquivo de registro, não tem conflito. Só uma credencial cruza repos: o GitHub App KB-writer, instalado só no <code>t0-kb</code>.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>15</span></div>
+</section>
+
+<!-- === 16. WORKSPACE === -->
+<section class="slide" aria-label="Workspace multi-repo">
+  <div class="kicker reveal d1">Workspace multi-repo</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:36px">Um workspace por produto, um card em toda sessão</h2>
+  <div class="grid" style="grid-template-columns: 1fr 1.1fr; gap:56px">
+<div class="tree reveal d3"><span class="k">~/ws/&lt;produto&gt;/</span>      <span class="c">a pasta que você abre</span>
+  <span class="k">AGENTS.md</span>          <span class="c">o card de contexto</span>
+  .t0/bet.json       <span class="c">bet ativa</span>
+  .t0/context.md     <span class="c">delta de frescor</span>
+  kb/                <span class="c">clone do t0-kb</span>
+  api/  web/  batch/ <span class="c">clones irmãos</span>
+
+<span class="k">~/ws/&lt;produto&gt;@BET-042/</span>
+  <span class="c">opcional, com worktrees, para</span>
+  <span class="c">duas bets em paralelo</span></div>
+    <div class="reveal d4">
+      <ul class="list sm">
+        <li>O manifesto mora no KB, em <code>products/&lt;p&gt;/workspace.md</code>, e muda por PR. <code>t0 ws init &lt;p&gt;</code> monta a pasta.</li>
+        <li>O card tem até 8.000 caracteres: bet ativa, critérios de aceite, repos e mapa do KB. Claude Code, Copilot e Kiro leem nativamente.</li>
+        <li>Hooks mandam um delta de até 3.000 quando o card envelhece, e subagente ganha um card de 1.500.</li>
+        <li>O MCP local <code>t0-kb</code> lê o KB por índice e busca, sem serviço hospedado.</li>
+        <li>Cross-repo: 1 slice = 1 repo = 1 PR, e todo PR é deployável sozinho.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>16</span></div>
+</section>
+
+<!-- === 17. PLUGIN ENTRY === -->
+<section class="slide" aria-label="O plugin t0">
+  <div class="kicker reveal d1">O plugin t0</div>
+  <div class="grid" style="grid-template-columns: 560px 1fr; gap:80px; align-items:center; margin-top:20px">
+    <div class="reveal d2">
+      <div class="stat"><div class="v" style="font-size:220px;font-family:var(--mono);letter-spacing:-0.06em">/t0</div></div>
+      <p class="lead" style="margin-top:20px">Uma porta de entrada só, igual no Claude Code, no Copilot e no Kiro.</p>
+    </div>
+    <div>
+      <div class="steps reveal d3" style="gap:22px">
+        <div class="step"><div class="txt">Você descreve o pedido em português, do jeito que vier.</div></div>
+        <div class="step"><div class="txt">O <code>/t0</code> escolhe o playbook e abre a lista de tarefas com os passos dele.</div></div>
+        <div class="step"><div class="txt">Cada passo chama uma skill, que grava no KB pelo comando <code>t0</code>.</div></div>
+        <div class="step human"><div class="txt">Na decisão humana, ele abre o PR, mostra a evidência e para.</div></div>
+      </div>
+      <div class="reveal d4 mt-s">
+        <p class="muted" style="font-size:21px;margin-bottom:12px;letter-spacing:.08em;text-transform:uppercase">Playbooks do fluxo</p>
+        <div class="chips"><span class="chip on">ideia</span><span class="chip on">rapida</span><span class="chip on">bet</span><span class="chip on">slice</span><span class="chip on">harness</span><span class="chip on">ritual</span></div>
+        <p class="muted" style="font-size:21px;margin:22px 0 12px;letter-spacing:.08em;text-transform:uppercase">Métodos de trabalho</p>
+        <div class="chips"><span class="chip">investigation</span><span class="chip">bug-fix</span><span class="chip">feature</span><span class="chip">refactoring</span><span class="chip">prototype</span><span class="chip">perf-issue</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>17</span></div>
+</section>
+
+<!-- === 18. SKILLS BY STAGE === -->
+<section class="slide" aria-label="Skills por etapa">
+  <div class="kicker reveal d1">Skills</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:40px">15 skills em pt-BR, agrupadas pela etapa</h2>
+  <div class="grid g4" style="gap:40px">
+    <div class="stage-col reveal d2"><h3>Ideação e spec</h3>
+      <div class="sk"><code>idea-capture</code><div>registra a ideia com dedup</div></div>
+      <div class="sk"><code>grill</code><div>afia ideia ou spec; glossário e ADR</div></div>
+      <div class="sk"><code>prototype</code><div>protótipo fora do main, grava o veredito</div></div>
+      <div class="sk"><code>bet-new</code><div>abre o PR da aposta, rápida ou bet</div></div>
+      <div class="sk"><code>bet-spec</code><div>spec com aceite em bullets e tier</div></div>
+      <div class="sk"><code>bet-slice</code><div>slices verticais no PR do spec</div></div>
+    </div>
+    <div class="stage-col reveal d3"><h3>Arquitetura e build</h3>
+      <div class="sk"><code>architect</code><div>tipos e módulos antes do código; para no checkpoint</div></div>
+      <div class="sk"><code>arena</code><div>N candidatos em worktrees, um juiz pontua</div></div>
+      <div class="sk"><code>swarm</code><div>workers em paralelo, um relatório só</div></div>
+      <div class="sk"><code>slice-build</code><div>TDD, trilha <code>.audit</code>, PR em draft</div></div>
+    </div>
+    <div class="stage-col reveal d4"><h3>Verificação</h3>
+      <div class="sk"><code>slice-verify</code><div>review contra o spec, prova no app, blast radius em Tier 2</div></div>
+      <div class="sk"><code>verify-setup</code><div>cria a skill <code>verify-&lt;app&gt;</code> do repo</div></div>
+    </div>
+    <div class="stage-col reveal d5"><h3>Time e harness</h3>
+      <div class="sk"><code>ritual</code><div>abre e fecha rituais, grava o registro</div></div>
+      <div class="sk"><code>harness-fix</code><div>erro repetido vira sensor, com PR em draft</div></div>
+      <div class="sk"><code>t0</code><div>porta de entrada, roteia e guarda as travas</div></div>
+      <p class="muted" style="font-size:20px;margin-top:26px;line-height:1.4">Subagentes: <code style="font-size:18px">t0-agent</code>, <code style="font-size:18px">spec-reviewer</code>, <code style="font-size:18px">standards-reviewer</code> e <code style="font-size:18px">verifier</code>.</p>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>18</span></div>
+</section>
+
+<!-- === 19. GUARDS === -->
+<section class="slide" aria-label="Travas">
+  <div class="kicker reveal d1">Travas</div>
+  <h2 class="reveal d2">O que o agente nunca faz sozinho</h2>
+  <div class="grid g2" style="margin-top:44px">
+    <div class="card reveal d2"><span class="tag">Só draft</span><p style="color:var(--text)">Todo PR nasce e fica em draft. O hook recusa <code>gh pr create</code> sem <code>--draft</code>, <code>gh pr ready</code>, force push e <code>reset --hard</code>.</p></div>
+    <div class="card reveal d3"><span class="tag">Sem merge</span><p style="color:var(--text)">Merge é do humano ou do CI. O bloqueio vale no shell e nas ferramentas MCP do GitHub, do mesmo jeito.</p></div>
+    <div class="card reveal d4"><span class="tag">KB só pelo t0</span><p style="color:var(--text)">Escrita no KB passa por comando <code>t0</code> ou por PR na raia de conhecimento. Chave derivada é do <code>kb-render</code>, e editar à mão é bloqueado.</p></div>
+    <div class="card reveal d5"><span class="tag">LGPD</span><p style="color:var(--text)">Transcrição crua fica em <code>~/.t0/inbox/</code>, fora do alcance do agente. A redação roda antes de qualquer modelo. 1:1 nunca é gravado, e tudo segue em dry-run até o aval de LGPD.</p></div>
+  </div>
+  <p class="reveal d5 muted" style="margin-top:34px;font-size:25px">Regra sem exceção mora em hook de git ou CI. Hook de agente é só acelerador.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>19</span></div>
+</section>
+
+<!-- === 20. RAPIDA WALKTHROUGH === -->
+<section class="slide" aria-label="Trilha rápida na prática">
+  <div class="kicker reveal d1">Na prática · trilha rápida</div>
+  <h2 class="reveal d2" style="font-size:60px;margin-bottom:12px">"O export do painel corta a última linha"</h2>
+  <div class="legend reveal d2" style="margin-bottom:30px"><span><i style="background:var(--tint)"></i>agente com o t0</span><span><i style="background:linear-gradient(135deg,var(--red),var(--magenta))"></i>decisão ou ação humana</span></div>
+  <div class="grid g2 reveal d3" style="gap:56px">
+    <div class="steps">
+      <div class="step"><div class="txt"><code>/t0 o export do painel corta a última linha</code><br><span class="muted">cai no playbook <code>rapida</code></span></div></div>
+      <div class="step"><div class="txt"><code>idea-capture</code> roda <code>t0 new idea</code><br><span class="muted">ou reaproveita a Idea que já existe</span></div></div>
+      <div class="step"><div class="txt">Reproduz o bug pelo <code>verify-&lt;app&gt;</code><br><span class="muted">e escreve atual, esperado, o que não muda e o teste</span></div></div>
+      <div class="step"><div class="txt"><code>bet-new rapida IDEA-0042</code><br><span class="muted">Bet, Slice e PR da aposta em draft</span></div></div>
+    </div>
+    <div class="steps" style="counter-reset: s 4">
+      <div class="step human"><div class="txt">Flow Steward ou Bet Owner aprova o PR na daily</div></div>
+      <div class="step"><div class="txt">CI roda <code>t0 jira sync</code><br><span class="muted">o slice fica <code>ready</code></span></div></div>
+      <div class="step"><div class="txt"><code>slice-build &lt;KEY&gt;</code> e <code>slice-verify &lt;KEY&gt;</code><br><span class="muted">teste vermelho, fix, PR em draft com evidência</span></div></div>
+      <div class="step human"><div class="txt">Review do tier e merge<br><span class="muted">o CI fecha com <code>t0 ci</code> e <code>t0 bet ship</code></span></div></div>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>20</span></div>
+</section>
+
+<!-- === 21. BET WALKTHROUGH === -->
+<section class="slide" aria-label="Bet completa na prática">
+  <div class="kicker reveal d1">Na prática · bet completa</div>
+  <h2 class="reveal d2" style="font-size:60px;margin-bottom:12px">Da ideia ao spec aprovado em poucas dailies</h2>
+  <div class="legend reveal d2" style="margin-bottom:30px"><span><i style="background:var(--tint)"></i>agente com o t0</span><span><i style="background:linear-gradient(135deg,var(--red),var(--magenta))"></i>decisão ou ação humana</span></div>
+  <div class="grid g2 reveal d3" style="gap:56px">
+    <div class="steps">
+      <div class="step"><div class="txt"><code>idea-capture</code><span class="muted">, depois</span> <code>prototype IDEA-0051</code><br><span class="muted">grava <code>t0 idea prototype --verdict segue</code></span></div></div>
+      <div class="step"><div class="txt"><code>bet-new bet IDEA-0051</code><br><span class="muted">PR da aposta; o CI roda <code>t0 gate aposta</code></span></div></div>
+      <div class="step human"><div class="txt">Bet Owner aprova a aposta<br><span class="muted">e o Lead, se cruza pods, é Tier 2 ou passa de 1 semana</span></div></div>
+      <div class="step"><div class="txt"><code>grill</code> com o pod, depois <code>bet-spec BET-007</code><br><span class="muted">termos no glossário, ADR quando é difícil desfazer</span></div></div>
+      <div class="step"><div class="txt"><code>architect</code> com <code>arena</code>, se o desenho é novo<br><span class="muted">para no checkpoint e espera o ok</span></div></div>
+    </div>
+    <div class="steps" style="counter-reset: s 5">
+      <div class="step"><div class="txt"><code>bet-slice BET-007</code><br><span class="muted">um arquivo por slice, no mesmo PR do spec</span></div></div>
+      <div class="step"><div class="txt"><code>t0 gate spec BET-007 --dry-run</code><br><span class="muted">recusa com <code>[PRECISA ESCLARECER]</code> aberto</span></div></div>
+      <div class="step human"><div class="txt">Bet Owner aprova o spec<br><span class="muted">e o Lead também em Tier 2</span></div></div>
+      <div class="step"><div class="txt">CI espelha as Stories no Jira<br><span class="muted">cada slice segue o playbook <code>slice</code></span></div></div>
+      <div class="step human"><div class="txt">Último merge<br><span class="muted">spec congelado, spec vivo do produto atualizado</span></div></div>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>21</span></div>
+</section>
+
+<!-- === 22. HARNESS LADDER + TIERS === -->
+<section class="slide" aria-label="Escada do harness e tiers">
+  <div class="kicker reveal d1">Qualidade</div>
+  <h2 class="reveal d2" style="font-size:64px;margin-bottom:40px">Erro repetido sobe a escada. Review segue o tier.</h2>
+  <div class="grid" style="grid-template-columns: 1fr 1fr; gap:64px">
+    <div class="reveal d3">
+      <p class="muted" style="font-size:24px;margin-bottom:20px">Na 2ª ocorrência, o Harness Item sobe só até onde resolve:</p>
+      <div class="rungs">
+        <div class="rung"><span class="i">1</span><div><b>Sensor</b><span>lint com mensagem para o agente, teste, hook de git, gate de CI</span></div></div>
+        <div class="rung"><span class="i">2</span><div><b>Regra de área</b><span><code>agents/rules/&lt;area&gt;.md</code>, gerada para as três ferramentas</span></div></div>
+        <div class="rung"><span class="i">3</span><div><b>Skill</b><span>quando é procedimento longo</span></div></div>
+        <div class="rung"><span class="i">4</span><div><b>AGENTS.md</b><span>por último, com até 150 linhas</span></div></div>
+      </div>
+    </div>
+    <div class="reveal d4">
+      <table class="t">
+        <thead><tr><th>Tier</th><th>Exemplos</th><th>Review mínimo</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td class="m">docs, testes, refactor mecânico</td><td>agente + CI, merge em lote diário</td></tr>
+          <tr><td>1</td><td class="m">feature interna, slice de bet</td><td>agente + 1 humano</td></tr>
+          <tr><td>2</td><td class="m">auth, dado de cliente, superfície pública, prompt de ferramenta das squads</td><td>agente + 2 humanos, blast radius</td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="font-size:23px;margin-top:24px">O humano só lê depois que o agente de review e o CI passaram. Ferramenta de agente só sai com eval, e incidente vira caso de eval.</p>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>22</span></div>
+</section>
+
+<!-- === 23. ADOPTION RUNGS === -->
+<section class="slide" aria-label="Degraus de adoção">
+  <div class="kicker reveal d1">Customer zero</div>
+  <h2 class="reveal d2">Ferramenta só sobe de degrau com número</h2>
+  <div class="grid g3 mt">
+    <div class="card reveal d2"><span class="tag">Degrau 1 · time</span><h3>O time usa primeiro</h3><p>Pelo menos 7 dos 10 ativos por semana, 2 semanas seguidas, e regressão de eval em 95% ou mais. PROPOSTA.</p></div>
+    <div class="card reveal d3"><span class="tag">Degrau 2 · piloto</span><h3>2 ou 3 squads piloto</h3><p>Pelo menos 40% dos devs-alvo ativos por 3 semanas e retenção de 50% em 4 semanas. PROPOSTA.</p></div>
+    <div class="card reveal d4"><span class="tag">Degrau 3 · ART</span><h3>Vira outcome do PI</h3><p>O Lead/AIVA leva adoção, valor e lacunas de eval ao ART e decide o degrau.</p></div>
+  </div>
+  <p class="callout reveal d5">"Ativo" é quem invocou a ferramenta em trabalho real numa semana, medido por telemetria. Nenhum ranking de pessoa por token, PR ou sessão: token é piso e custo, nunca meta.</p>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>23</span></div>
+</section>
+
+<!-- === 24. HOW TO START === -->
+<section class="slide" aria-label="Como começar amanhã">
+  <div class="kicker reveal d1">Amanhã cedo</div>
+  <h2 class="reveal d2">Como começar</h2>
+  <div class="grid g2 mt" style="gap:64px">
+    <div class="steps reveal d3" style="gap:26px">
+      <div class="step"><div class="txt">Instale o pacote <code>t0</code> e o plugin, e rode <code>t0 doctor</code>.</div></div>
+      <div class="step"><div class="txt">Monte o workspace do seu pod com <code>t0 ws init &lt;produto&gt;</code> e abra a pasta <code>~/ws/&lt;produto&gt;/</code>.</div></div>
+      <div class="step"><div class="txt">No repo de produto, rode <code>t0 setup</code>. Sem <code>verify-&lt;app&gt;</code>, chame <code>verify-setup</code>.</div></div>
+    </div>
+    <div class="steps reveal d4" style="gap:26px;counter-reset:s 3">
+      <div class="step"><div class="txt">Leve a primeira ideia para a daily do pod com <code>/t0</code> e prototipe ali mesmo.</div></div>
+      <div class="step"><div class="txt">Confira no KB, em <code>team/rotations/</code>, quem é Harness Keeper e Flow Steward nesta quinzena.</div></div>
+      <div class="step"><div class="txt">Viu o agente errar duas vezes a mesma coisa? Leve para o Harness Health da semana.</div></div>
+    </div>
+  </div>
+  <div class="chrome"><span><b>t0</b> metodologia</span><span>24</span></div>
+</section>
+
+<!-- === 25. CLOSING === -->
+<section class="slide title-slide" aria-label="Encerramento">
+  <div class="bands" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  <div class="kicker reveal d1">Para levar</div>
+  <h1 class="reveal d2" style="font-size:112px">Protótipo hoje.<br>Decisão amanhã.<br><span class="grad">Registro sempre.</span></h1>
+  <p class="lead reveal d3">Três decisões humanas, seis rituais e um comando de entrada. O resto o <code>/t0</code> grava por você.</p>
+</section>
+
+</main>
+</div>
+
+<!-- === DECK CONTROLS === -->
+<nav class="deck-controls" aria-label="Navegação">
+  <button id="prevBtn" aria-label="Slide anterior"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <span class="counter" id="counter">1 / 25</span>
+  <button id="nextBtn" aria-label="Próximo slide"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+  <span class="sep"></span>
+  <button id="themeBtn" aria-label="Alternar tema claro e escuro"><svg viewBox="0 0 24 24" id="themeIcon"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+</nav>
+
+<script>
+/* ===========================================
+   THEME: OS preference by default,
+   explicit choice persisted in localStorage
+   =========================================== */
+(function () {
+  var KEY = 't0-deck-theme';
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem(KEY); } catch (e) { stored = null; }
+  if (stored === 'light' || stored === 'dark') root.setAttribute('data-theme', stored);
+
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function current() {
+    var t = root.getAttribute('data-theme');
+    if (t) return t;
+    return mq && mq.matches ? 'dark' : 'light';
+  }
+  var sun = '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  var moon = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
+  function paintIcon() {
+    var icon = document.getElementById('themeIcon');
+    if (icon) icon.innerHTML = current() === 'dark' ? sun : moon;
+  }
+  window.__toggleTheme = function () {
+    var next = current() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    paintIcon();
+  };
+  if (mq && mq.addEventListener) mq.addEventListener('change', paintIcon);
+  document.addEventListener('DOMContentLoaded', paintIcon);
+  paintIcon();
+})();
+
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   Fixed 1920x1080 stage, keyboard, click,
+   wheel, touch, progress bar and counter.
+   =========================================== */
+class SlidePresentation {
+  constructor() {
+    this.slides = Array.from(document.querySelectorAll('.slide'));
+    this.stage = document.getElementById('deckStage');
+    this.counter = document.getElementById('counter');
+    this.progress = document.getElementById('progress');
+    this.current = 0;
+    this.lastWheel = 0;
+    this.setupScale();
+    this.setupKeys();
+    this.setupButtons();
+    this.setupWheel();
+    this.setupTouch();
+    var fromHash = parseInt((location.hash || '').replace('#', ''), 10);
+    this.show(isNaN(fromHash) ? 0 : fromHash - 1);
+    window.addEventListener('hashchange', () => {
+      var n = parseInt((location.hash || '').replace('#', ''), 10);
+      if (!isNaN(n) && n - 1 !== this.current) this.show(n - 1);
+    });
+  }
+  setupScale() {
+    const fit = () => {
+      const f = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      const x = (window.innerWidth - 1920 * f) / 2;
+      const y = (window.innerHeight - 1080 * f) / 2;
+      this.stage.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + f + ')';
+    };
+    fit();
+    window.addEventListener('resize', fit);
+  }
+  setupKeys() {
+    document.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key;
+      if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); this.next(); }
+      else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); this.prev(); }
+      else if (k === 'Home') { e.preventDefault(); this.show(0); }
+      else if (k === 'End') { e.preventDefault(); this.show(this.slides.length - 1); }
+      else if (k === 't' || k === 'T') { window.__toggleTheme(); }
+    });
+  }
+  setupButtons() {
+    document.getElementById('prevBtn').addEventListener('click', () => this.prev());
+    document.getElementById('nextBtn').addEventListener('click', () => this.next());
+    document.getElementById('themeBtn').addEventListener('click', () => window.__toggleTheme());
+    /* click on the stage: right 2/3 advances, left 1/3 goes back */
+    document.querySelector('.deck-viewport').addEventListener('click', (e) => {
+      if (window.getSelection && String(window.getSelection())) return;
+      if (e.clientX < window.innerWidth / 3) this.prev(); else this.next();
+    });
+  }
+  setupWheel() {
+    window.addEventListener('wheel', (e) => {
+      const now = Date.now();
+      if (now - this.lastWheel < 700 || Math.abs(e.deltaY) < 30) return;
+      this.lastWheel = now;
+      if (e.deltaY > 0) this.next(); else this.prev();
+    }, { passive: true });
+  }
+  setupTouch() {
+    let sx = null;
+    window.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    window.addEventListener('touchend', (e) => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) > 50) { dx < 0 ? this.next() : this.prev(); }
+      sx = null;
+    }, { passive: true });
+  }
+  next() { this.show(this.current + 1); }
+  prev() { this.show(this.current - 1); }
+  show(i) {
+    this.current = Math.max(0, Math.min(i, this.slides.length - 1));
+    this.slides.forEach((s, n) => {
+      const on = n === this.current;
+      s.classList.toggle('active', on);
+      s.classList.toggle('visible', on);
+      s.setAttribute('aria-hidden', on ? 'false' : 'true');
+    });
+    const total = this.slides.length;
+    this.counter.textContent = (this.current + 1) + ' / ' + total;
+    this.progress.style.width = ((this.current + 1) / total * 100) + '%';
+    const h = '#' + (this.current + 1);
+    if (location.hash !== h) { try { history.replaceState(null, '', h); } catch (e) {} }
+  }
+}
+new SlidePresentation();
+</script>
+</body>
+</html>
