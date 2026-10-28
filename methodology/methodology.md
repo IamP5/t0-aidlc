@@ -46,10 +46,10 @@ Convenções: KB é o repositório OKF do time (`t0-kb`). O toolkit `t0` junta s
  harness, em qualquer etapa: agente erra pela 2ª vez ──> Harness Item ──> sensor, regra, skill ou AGENTS.md ──> PR aberto no Harness Health da semana
 ```
 
-1. Ideia. Qualquer pessoa registra a qualquer hora com `idea-capture`, ou ela sai da gravação de uma daily pelo `meeting-record`.
+1. Ideia. Qualquer pessoa registra a qualquer hora com `idea-capture`, ou ela sai da gravação de uma daily pelo `ritual <slug> close --transcript`.
 2. Protótipo. Minutos a horas, sem aprovação, sozinho ou na daily do pod com o agente. Fica fora do main e nunca vira base de código. O `prototype` grava o resultado como uma linha na Idea: segue, ajusta ou mata.
 3. Decisão: vira bet? O Bet Owner decide na daily do pod (`gate aposta`). O Lead só entra quando a bet cruza pods, é Tier 2 ou passa de 1 semana de apetite.
-4. Spec + slices. O agente gera durante a daily do pod, em mob (`bet-spec`, `bet-slice`). O spec vai para o KB num PR que o Bet Owner aprova (`gate spec`), e o Lead também em Tier 2. O `bet-sync` espelha as Stories no Jira.
+4. Spec + slices. O agente gera durante a daily do pod, em mob (`bet-spec`, `bet-slice`). Spec e slices vão para o KB no mesmo PR, que o Bet Owner aprova (a aprovação é o `gate spec`), e o Lead também em Tier 2. Depois do merge, o CI espelha as Stories no Jira.
 5. Build e Verify. Um slice é um PR em draft (`slice-build`), revisado primeiro pelo agente (`slice-verify`) e depois por humanos conforme o tier. O CI move os estados sozinho.
 6. Ship. Merge e release. No merge do último slice, o CI congela o spec da bet e atualiza o spec vivo do produto.
 7. Degraus de adoção (customer zero), por produto: time, depois 2 ou 3 squads piloto, depois o ART. O Lead/AIVA decide com números (`gate degrau`).
@@ -58,8 +58,8 @@ Convenções: KB é o repositório OKF do time (`t0-kb`). O toolkit `t0` junta s
 
 | Decisão | Quem decide | O que fica registrado | Comando |
 |---|---|---|---|
-| Aposta | Bet Owner, na daily do pod; Lead também se cruza pods, é Tier 2 ou passa de 1 semana; na trilha rápida, Flow Steward ou Bet Owner | Bet `active` com `appetite` e `verified` | `gate aposta <IDEA\|BET>` |
-| Spec | Bet Owner; em Tier 2, também o Lead | Spec `approved`, `markers_open: 0`, `verified` de cada aprovador | `gate spec <BET>` |
+| Aposta | Bet Owner, na daily do pod; Lead também se cruza pods, é Tier 2 ou passa de 1 semana; na trilha rápida, Flow Steward ou Bet Owner | Bet `active` com `appetite` e `verified` | PR aberto pelo `bet-new` (`t0 gate aposta` no CI) |
+| Spec | Bet Owner; em Tier 2, também o Lead | Spec `approved`, `markers_open: 0`, `verified` de cada aprovador | PR do spec e dos slices (`t0 gate spec` no CI) |
 | Degrau | Lead/AIVA, quando os números saem | Adoption Report `passed`; Product com `adoption_stage` novo e `verified` | `gate degrau <produto>` |
 
 O `t0 gate` grava a decisão como PR no repo do KB, mudando `state` e acrescentando `verified: { by: human:<aprovador>, at: <data com offset> }`. Aprovar o PR é decidir. O histórico git do KB é a trilha de auditoria que o banco pede, e `t0 trace <BET>` gera para o auditor o JSON requisito → slice → PR → teste a partir do frontmatter. PR de spec tem o mesmo SLO do review de código.
@@ -142,7 +142,7 @@ A daily do pod conta como trabalho. É ali que o pod prototipa, especifica e pla
 
 ### 4.3 Transcrição
 
-As dailies podem ser gravadas, com aviso, para o agente extrair ideias e decisões. A redação é determinística e vem antes de qualquer modelo: `meeting-record` chama `t0 transcript redact`, que roda o scanner de segredo e as regex de CPF, conta, e-mail e telefone; depois o agente faz uma passada para dado de cliente. Qualquer pessoa pode pedir "fora do registro" para um trecho, e o Transcript guarda só a contagem (`off_record_spans`). 1:1 nunca é gravado. Até o aval de LGPD, tudo fica em dry-run (redige e não persiste). Tudo que o agente extrai entra sem `verified` até alguém confirmar.
+As dailies podem ser gravadas, com aviso, para o agente extrair ideias e decisões. A redação é determinística e vem antes de qualquer modelo: `ritual <slug> close --transcript` chama `t0 transcript redact`, que roda o scanner de segredo e as regex de CPF, conta, e-mail e telefone; depois o agente faz uma passada para dado de cliente. Qualquer pessoa pode pedir "fora do registro" para um trecho, e o Transcript guarda só a contagem (`off_record_spans`). 1:1 nunca é gravado. Até o aval de LGPD, tudo fica em dry-run (redige e não persiste). Tudo que o agente extrai entra sem `verified` até alguém confirmar.
 
 Retenção: Transcript com `stale_after` de 180 dias (PROPOSTA, pendente de validação com jurídico/LGPD). Vencido o prazo, a transcrição é apagada e o Ritual Record fica.
 
@@ -210,7 +210,7 @@ Toda skill termina chamando `t0 log`, que grava um registro de passo novo em `st
 
 ## 6. Jira como espelho
 
-KB primeiro, sempre. `bet-sync` chama `t0 jira sync`, que lê o KB, escreve no Jira pela API/MCP do Atlassian e grava a chave de volta no frontmatter. Rodar de novo sem diff não cria nada.
+KB primeiro, sempre. Depois do merge no KB, o CI chama `t0 jira sync`, que lê o KB, escreve no Jira pela API/MCP do Atlassian e grava a chave de volta no frontmatter. Rodar de novo sem diff não cria nada.
 
 | Campo | Direção | Regra |
 |---|---|---|
@@ -331,7 +331,7 @@ SAFe por fora, builder pods por dentro. O AI-Native SAFe pede outcomes no PI em 
 |---|---|
 | AI-Native Team (3 a 7 pessoas) | 3 pods + Lead; o segundo revisor de Tier 2 pode vir de outro pod |
 | Epic / tema | Idea promovida e outcome de PI |
-| Feature / Story | Bet / Slice, espelhadas pelo `bet-sync` |
+| Feature / Story | Bet / Slice, espelhadas pelo `t0 jira sync` no CI |
 | Iteração (2 semanas) | fluxo contínuo por dentro; Demo no fim de cada iteração do ART |
 | PI Planning / PI Outcome Planning | compromisso com degraus de adoção, pisos de eval, SLO de review e DORA por produto; bets candidatas com apetite e risco entram como meio |
 | Sense & Respond | registro da Demo e snapshot da quinzena como insumo; decisões do ART voltam como ADR ou Idea |
@@ -365,31 +365,34 @@ Decisões em aberto:
 
 ## 11. Passo → comando → artefato OKF
 
-Cada comando é uma skill `SKILL.md`, descoberta pelas três ferramentas; quando há base upstream, é fork com `metadata.credits`.
+A porta de entrada é uma skill só, `/t0`: ela entende o pedido, escolhe o playbook (ideia, rápida, bet, slice, harness, ritual) e chama as skills de passo. Cada skill é um `SKILL.md` descoberto pelas três ferramentas. Quando há base upstream (mattpocock-skills ou pstack), o `t0 gen` monta a skill no build a partir do texto upstream intacto mais um patch declarado; o desenho está em `toolkit/design/DESIGN.md` §7.
 
 | Passo | Comando | Determinístico via `t0` | Escreve (tipo OKF) |
 |---|---|---|---|
-| Capturar ideia | `idea-capture` | `t0 idea new`, com dedup | Idea `new` |
-| Prototipar | `prototype <IDEA>` | grava o protótipo fora do main | veredito na Idea (`prototyped` ou `killed`) |
-| Abrir bet ou trilha rápida | `bet-new rapida\|bet <IDEA>` | `t0 bet new`; na rápida, também o slice único | Bet `proposed`; Slice na rápida; Idea `promoted` |
-| Decisão: aposta | `gate aposta <IDEA\|BET>` | `t0 gate aposta`: exige o Lead quando cruza pods, Tier 2 ou mais de 1 semana | Bet `active` + `verified` |
-| Spec | `bet-spec <BET>` | conta `markers_open`; numera ADR (`t0 adr new`) | Spec `draft`; ADR `proposed`; Glossary Term |
-| Slices | `bet-slice <BET>` | um arquivo por slice; grafo de dependências | Slice `ready` |
-| Decisão: spec | `gate spec <BET>` | `t0 gate spec`: recusa com marcador aberto; exige o Lead em Tier 2 | Spec `approved` + `verified` |
-| Espelhar no Jira | `bet-sync <BET>` | `t0 jira sync` | chaves `jira:`; Idea de intake; `log.md` |
-| Build | `slice-build <KEY>` | checa o DoR; branch, PR em draft, `.audit/<KEY>.tsv` | Slice `building` + `pr` |
-| Verify | `slice-verify <KEY>` | review contra o spec; blast radius em Tier 2; `t0 harness record` | comentário no PR; Harness Item |
-| Estados e ship | CI | `t0 ci <KEY>` (In Review, Done, `verified` copiado das aprovações); no último merge, `t0 bet ship` | Slice; Spec `frozen`; spec vivo; Adoption Report `open`; Bet `shipped` |
-| Kill | `kb log <BET> kill "<motivo>"` | `t0 log` | Bet `killed` |
-| Decisão: degrau | `gate degrau <produto>` | `t0 adoption` contra os pisos e `t0 eval run`; recusa sem os dois | Adoption Report; Product `adoption_stage` + `verified` |
-| Rituais | `ritual daily-time\|daily-pod\|harness-health\|demo\|retro open\|close` | `t0 digest` antes da daily do time; o close do Harness Health falha sem PR por item aceito; o close da Demo grava o rodízio | Ritual Record; Harness Item; Rotation; Metric Snapshot |
-| Transcrição | `meeting-record <arquivo>` | `t0 transcript redact` antes do modelo | Transcript; Idea e ADR sem `verified` |
+| Capturar ideia | `idea-capture` | `t0 new idea`, com dedup | Idea `new` |
+| Prototipar | `prototype <IDEA>` | grava o protótipo fora do main; `t0 idea prototype --verdict` | veredito na Idea (`segue`, `ajusta` ou `mata`) |
+| Afiar a ideia ou o spec | `grill` | `t0 new adr` quando a decisão é difícil de desfazer | Glossary Term; ADR `proposed` |
+| Abrir bet ou trilha rápida, com a decisão de aposta | `bet-new rapida\|bet <IDEA>` | `t0 new bet` abre o PR da aposta; `t0 gate aposta --ci` exige o Lead quando cruza pods, é Tier 2 ou passa de 1 semana | Bet `proposed` e, com o PR aprovado, `active` + `verified`; Slice na rápida; Idea `promoted` |
+| Spec | `bet-spec <BET>` | conta `markers_open`; numera ADR | Spec `draft`; ADR `proposed`; Glossary Term |
+| Desenho | `architect` (com `arena` para comparar candidatos) | para no desenho e espera o ok; modelos vêm da Policy `models` | seção Design do spec; ADR |
+| Slices, com a decisão de spec | `bet-slice <BET>` | um arquivo por slice no mesmo PR do spec; `t0 gate spec --ci` recusa com marcador aberto e exige o Lead em Tier 2 | Slice `ready`; com o PR aprovado, Spec `approved` + `verified` |
+| Espelhar no Jira | CI, depois do merge | `t0 jira sync` | chaves `jira:`; `log.md` |
+| Build | `slice-build <KEY>` | `t0 slice dor` (DoR e WIP de 2); branch, PR em draft, `.audit/<KEY>.tsv` | Slice `building` + `pr` |
+| Verify | `slice-verify <KEY>` | review contra o spec; blast radius em Tier 2; `swarm` para a matriz de cobertura; evidência pelo `verify-<app>` do repo | comentário no PR; Harness Item |
+| Skill de verificação do app | `verify-setup` | grava `.t0/skills/verify-<app>/` no repo de produto | skill local; Harness Item quando o mapa envelhece |
+| Estados e ship | CI | `t0 ci <KEY>` (In Review, Done, `verified` copiado das aprovações); no último merge, `t0 bet ship` | Slice; Spec `frozen`; spec vivo; Bet `shipped` |
+| Kill | `t0 log kill "<motivo>"` | `t0 log` | Bet `killed` |
+| Decisão: degrau (v0.2) | `t0 gate degrau <produto>` | `t0 adoption` contra os pisos e `t0 eval run`; recusa sem os dois | Adoption Report; Product `adoption_stage` + `verified` |
+| Rituais | `ritual <slug> open\|close` | abrir a daily do time imprime o status; fechar o Harness Health falha sem PR por item aceito; fechar a Demo grava o rodízio | Ritual Record; Harness Item; Rotation |
+| Transcrição | `ritual <slug> close --transcript <arquivo>` | `t0 transcript redact` antes do modelo; dry-run até o aval de LGPD | Transcript; Idea e ADR sem `verified` |
 | Erro repetido → sensor | `harness-fix <HI>` | escolhe o degrau da escada; PR em draft no repo certo | Harness Item `fixed` + `pr` |
-| KB | `kb find\|check\|log` | `t0 kb find`, `t0 kb check` (L0 a L2), `t0 log` | registro de passo em `steps/` |
+| Atualização upstream | `t0 upstream status\|pull` (Harness Keeper, toda semana) | compara o lock com o upstream; anchor de patch que quebrou falha o build e aponta a skill | PR em draft no toolkit; Harness Item para o que vale adotar |
 
-Só na CLI: `t0 setup` (instala o toolkit num repo: `AGENTS.md`, ponteiros, regras, hooks, gates), `t0 ws init` e `t0 bet start --isolate`, `t0 mcp`, `t0 rules build`, `t0 eval run|add`, `t0 jira sync --reconcile`, `t0 review-queue` e `t0 trace`.
+Só na CLI: `t0 setup` (instala o toolkit num repo: `AGENTS.md`, ponteiros, hooks, links das skills de verificação), `t0 kb find|check|get`, `t0 mcp`, `t0 context`, `t0 jira sync --reconcile` e `t0 doctor`.
 
-Ficam fora do toolkit, de propósito: poteto-mode (PR pronto, force push, "proceed without asking"), `why`/`recall`/`automate-me`/`reflect` (leem transcrições e varrem todos os MCPs), `make-bot-ui`, `no-comments`, `interrogate` (sem diversidade de família de modelo no banco) e `arena`/`swarm` (até o banco aprovar mais de um tier em paralelo).
+Poteto-mode, `arena` e `swarm` entram, com as travas que faltavam na v1. O hook bloqueia PR que não é draft, merge, force push e `reset --hard`, tanto no shell quanto pelas ferramentas MCP do GitHub. O "proceed without asking" vale só para trabalho reversível dentro de um slice; aposta, spec, degrau e merge continuam humanos. Os modelos de `arena` e `swarm` saem da Policy `models`: com um tier só aprovado pelo banco, eles rodam vários candidatos no mesmo modelo e marcam a saída como `same-family`. Os playbooks do pstack que fazem ship ou merge, abrem PR pronto ou leem transcrição (`opening-a-pr`, `babysit`, `shipping`, `autopilot-*`, `orchestrate`, `multi-phase-plan`, `session-pickup`) não vêm junto.
+
+Continuam fora: `why`, `recall`, `automate-me` e `reflect` (leem transcrições e varrem todos os MCPs), `make-bot-ui`, `no-comments` e `interrogate` (sem diversidade de família de modelo no banco).
 
 ---
 

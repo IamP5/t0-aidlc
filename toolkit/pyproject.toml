@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "AIDLC t0 toolkit: OKF knowledge base, methodology gates, rituals and agent adapters"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = ["pyyaml>=6", "mcp>=1.2"]
+dependencies = ["pyyaml>=6", "mcp>=2.3,<3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
