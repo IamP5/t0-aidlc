@@ -17,25 +17,26 @@ O time escreveu as skills à mão, em pt-BR, usando as do mattpocock-skills e do
 
 O plugin não tem código Python. Hooks e MCP chamam o comando `t0`. Os hooks passam por `hooks/t0-hook.sh`. Esse script procura o `t0` no PATH ou fixado no workspace em `.t0/bin/t0`, subindo a partir da pasta atual. No início da sessão, ele exporta esse caminho e `T0_KB=<workspace>/kb` para o shell do agente. Assim o shell acha o `t0` e o KB mesmo depois de sair do workspace. Sem `t0` instalado, os hooks ficam desligados, com um aviso.
 
-1. Instale a CLI a partir do repo do toolkit (Python 3.11 ou mais novo):
+Um comando instala tudo. Clone o repo do t0 e rode:
 
-   ```
-   pipx install ./toolkit
-   t0 doctor
-   ```
+```
+./install.sh --kb <remote do KB>
+```
 
-2. Instale o plugin na sua ferramenta:
+O script instala a CLI a partir de `./toolkit`, com `uv` ou `pipx` (Python 3.11 ou mais novo). Depois roda o `t0 install`, que adiciona o marketplace deste repo ao Claude Code, instala o plugin `t0@t0-aidlc`, grava as configs de usuário e monta os workspaces dos seus produtos. O passo a passo está em [Workspace](06-workspace.md).
 
-   | Ferramenta | Como |
-   |---|---|
-   | Claude Code | pelo marketplace do time; para testar local, `claude --plugin-dir ./plugin` |
-   | Copilot CLI | `copilot plugin install`, que lê o formato Claude (não verificado no ambiente do banco) |
-   | Copilot no VS Code | como Agent Plugin, no formato Agent Plugins 1.0 (não verificado) |
-   | Kiro | como power, no formato Agent Plugins 1.0 (não verificado) |
+Sem o `claude` no PATH, o `t0 install` pula o plugin e imprime o comando para rodar depois. Copilot e Kiro ainda são à mão:
 
-3. Em cada repo de produto, rode `t0 setup` uma vez. O comando escreve o bloco t0 no `AGENTS.md`, os ponteiros por ferramenta, os hooks e os links da skill `verify-<app>`.
+| Ferramenta | Como |
+|---|---|
+| Claude Code | `t0 install`; à mão, `claude plugin marketplace add <repo t0-aidlc>` e `claude plugin install t0@t0-aidlc`; para testar local, `claude --plugin-dir ./plugin` |
+| Copilot CLI | `copilot plugin install`, que lê o formato Claude (não verificado no ambiente do banco) |
+| Copilot no VS Code | como Agent Plugin, no formato Agent Plugins 1.0 (não verificado) |
+| Kiro | como power, no formato Agent Plugins 1.0 (não verificado) |
 
-4. Monte o workspace do produto, como em [Workspace](06-workspace.md).
+Em cada repo de produto, rode `t0 setup` uma vez e commite. O comando escreve o bloco t0 no `AGENTS.md`, os ponteiros por ferramenta, os hooks e os links da skill `verify-<app>`. O `t0 ws init` lista os repos que ainda não têm o bloco.
+
+Sem o `install.sh`, instale a CLI com `pipx install ./toolkit` e rode `t0 install --plugin-source <repo t0-aidlc> --kb <remote do KB>`.
 
 A versão do plugin é a mesma do pacote `t0`. Quando um atualiza, o outro atualiza junto.
 

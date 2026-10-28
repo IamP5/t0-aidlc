@@ -189,12 +189,13 @@ generated: { by: human:ana, at: 2026-10-27T10:00:00-03:00 }
 ### 2.3 Comandos
 
 ```
-t0 install --user                 uma vez por máquina: plugin t0 no Claude Code, Copilot e Kiro (2.4);
-                                  sem plugin, copia as skills para os diretórios de usuário;
-                                  grava as configs de usuário com caminhos absolutos
-t0 ws init payments [--group backend]
-                                  clona o KB se faltar, lê /products/payments/workspace.md,
-                                  clona os repos como irmãos, pula 403, gera AGENTS.md e adaptadores
+t0 install [--kb URL] [--product P]
+                                  uma vez por máquina: ~/.t0/config.yaml, clone do KB, plugin t0 no
+                                  Claude Code (Copilot e Kiro: imprime o passo manual), configs de
+                                  usuário com caminhos absolutos, `ws init` de cada produto
+t0 ws init payments               lê /products/payments/workspace.md, liga kb/ ao clone do config,
+                                  clona os repos como irmãos, pula 403 (vai para absent), gera
+                                  AGENTS.md e .t0/{workspace.json,env.sh}
 t0 ws sync [--quick]              fetch + ff-only nas branches padrão limpas e no kb/;
                                   re-renderiza AGENTS.md; avisa árvore suja ou divergente
 t0 ws status                      por repo: branch, sujo, ahead/behind, PRs; frescor do card; spool
@@ -238,7 +239,7 @@ O contexto chega em três camadas. A camada 1 sozinha já garante correção; as
 | **Copilot no VS Code** (agent mode) | Abrir `~/ws/payments` como **pasta única** (não multi-root). `AGENTS.md` da raiz (`chat.useAgentsMdFile`, ligado por padrão). `.vscode/settings.json` gerado liga `chat.useNestedAgentsMdFiles` para carregar o AGENTS.md dos repos (experimental). | Task `t0: sync` com `runOptions.runOn: folderOpen` roda `t0 ws sync --quick` antes do chat **(verificar)**. Plugin instalado como Agent Plugin. O hook de sessionStart dele roda no VS Code com matchers ignorados **(verificar)**. | MCP do plugin | O card manda: "se `.t0/context.md` for mais novo que este card, leia ele primeiro". Fallback para quem abre um repo sozinho: o bloco t0 commitado no `AGENTS.md` de cada repo (2.7). |
 | **Copilot CLI** | `source ~/ws/payments/.t0/env.sh` exporta `COPILOT_CUSTOM_INSTRUCTIONS_DIRS=/Users/ana/ws/payments`, então o AGENTS.md da raiz carrega mesmo lançando dentro de `api/`. O CLI por padrão só sobe até a raiz do repo. | Plugin via `copilot plugin install` (lê o formato Claude). O CLI também lê os hooks do plugin e de `.claude/settings.json`. Se o stdout do hook vira contexto **(verificar)**. O design não depende disso: o card já chega pelo arquivo. | MCP do plugin, ou `~/.copilot/mcp-config.json` | Mesma linha do card sobre `.t0/context.md`. |
 | **Copilot cloud agent** | Sem workspace. O `AGENTS.md` commitado do repo de produto traz o bloco t0. `.github/workflows/copilot-setup-steps.yml` faz checkout read-only do `t0-kb` em `.kb/` (gitignored) e instala o `t0` **(verificar: setup steps liberados no GHE do banco)**. | n/a (uma tarefa por execução) | Repo Settings → Copilot → MCP: stdio `t0 mcp --kb .kb`, allowlist `kb_context`, `kb_search`, `kb_get`, `bet_get`. Servidor stdio disponível depois dos setup steps **(verificar)**. | O bloco manda: pegue a chave Jira da issue, chame `kb_context(<chave>)` ou rode `t0 context <chave> --kb .kb`. Se nada funcionar, pare e diga "KB indisponível". O `t0 pr check` avisa PR sem trailer `KB-Context`. |
-| **Kiro** (IDE e kiro-cli) | Abrir `~/ws/payments` como pasta. `AGENTS.md` é sempre incluído. | `.kiro/hooks/t0.json`: Session Start roda `t0 context --format delta --write`, Agent Stop roda `t0 kb push --if-due`, Pre Tool Use roda o guard. `.kiro/steering/t0.md` com `inclusion: always` contém `#[[file:.t0/context.md]]`, então o delta entra igual ao do Claude e o card nunca entra duas vezes. Se o include é resolvido depois do hook de Session Start **(verificar)**. Custom agents do Kiro ficam de fora, porque não carregam steering nem skills. | Skills e MCP pelo power `t0` (formato Agent Plugins). O Kiro carregar um power que também tem `.claude-plugin/` e `hooks/` **(verificar)**. Sem power: `t0 install --user` copia para `~/.kiro/skills` e `~/.kiro/settings/mcp.json`. | `~/.kiro/steering/t0.md` (`inclusion: always`, 6 linhas) com a mesma regra do fallback. |
+| **Kiro** (IDE e kiro-cli) | Abrir `~/ws/payments` como pasta. `AGENTS.md` é sempre incluído. | `.kiro/hooks/t0.json`: Session Start roda `t0 context --format delta --write`, Agent Stop roda `t0 kb push --if-due`, Pre Tool Use roda o guard. `.kiro/steering/t0.md` com `inclusion: always` contém `#[[file:.t0/context.md]]`, então o delta entra igual ao do Claude e o card nunca entra duas vezes. Se o include é resolvido depois do hook de Session Start **(verificar)**. Custom agents do Kiro ficam de fora, porque não carregam steering nem skills. | Skills e MCP pelo power `t0` (formato Agent Plugins). O Kiro carregar um power que também tem `.claude-plugin/` e `hooks/` **(verificar)**. Sem power, copie à mão para `~/.kiro/skills` e `~/.kiro/settings/mcp.json` (o `t0 install` ainda não faz isso). | `~/.kiro/steering/t0.md` (`inclusion: always`, 6 linhas) com a mesma regra do fallback. |
 | **CI sem agente** | n/a | n/a | `t0 pr check` | Workflow reutilizável faz checkout read-only do KB. |
 | **CI com agente** (claude-code-action, `copilot -p`, `kiro-cli --no-interactive`) | Mesmo checkout em `.kb/` + `t0 context <chave> --kb .kb --format agents > card.md`, passado como primeiro arquivo do prompt | n/a | `t0 mcp --kb .kb` | "KB indisponível → pare." |
 
@@ -413,7 +414,7 @@ Corpo com ≤20 linhas. Um `decision` que muda o contrato (spec, API, modelo de 
 
 ## 5. Um dia na vida
 
-Ana é Bet Owner da **BET-042 "limites diários de transferência"** no `payments` (6 repos). A daily do pod já mergeou `bet.md`, `spec.md`, `plan.md` e três slices: `01-ledger-limits` (PAY-130, ledger), `02-api-limits` (PAY-131, api, depende do 01) e `03-web-limit-errors` (PAY-132, web, depende do 02). A Feature é PAY-123. No primeiro dia ela rodou `t0 install --user` e `t0 ws init payments`.
+Ana é Bet Owner da **BET-042 "limites diários de transferência"** no `payments` (6 repos). A daily do pod já mergeou `bet.md`, `spec.md`, `plan.md` e três slices: `01-ledger-limits` (PAY-130, ledger), `02-api-limits` (PAY-131, api, depende do 01) e `03-web-limit-errors` (PAY-132, web, depende do 02). A Feature é PAY-123. No primeiro dia ela rodou `t0 install` e `t0 ws init payments`.
 
 **Começo comum, qualquer ferramenta:**
 
@@ -455,8 +456,8 @@ $ t0 slice start PAY-130
 
 **CLI `t0`.** É um pacote só, sem daemon, fixado e instalado pelo registry interno do banco.
 
-1. `install --user`: plugin nas três ferramentas (marketplace do Claude, `copilot plugin install`, power do Kiro) ou cópia das skills para os diretórios de usuário; configs de usuário com caminhos absolutos (`instructionFiles`, `permissions.additionalDirectories`, `~/.copilot/instructions/t0.instructions.md`, `~/.kiro/steering/t0.md`, configs MCP de usuário quando não há plugin).
-2. `ws init|sync|status`: leitor do manifesto (`workspace:` de `workspace.md`), clone com pulo de 403, sync ff-only, geração de `AGENTS.md`, `.t0/*`, `.vscode/*`, `.kiro/*`.
+1. `install` (feito: config, clone do KB, plugin no Claude Code, `instructionFiles` e `permissions.additionalDirectories`; o resto ainda não): plugin nas três ferramentas (marketplace do Claude, `copilot plugin install`, power do Kiro) ou cópia das skills para os diretórios de usuário; configs de usuário com caminhos absolutos (`instructionFiles`, `permissions.additionalDirectories`, `~/.copilot/instructions/t0.instructions.md`, `~/.kiro/steering/t0.md`, configs MCP de usuário quando não há plugin).
+2. `ws init|sync|status` (feito: `ws init` sem `--group` e sem `.vscode/*` e `.kiro/*`): leitor do manifesto (`workspace:` de `workspace.md`), clone com pulo de 403, sync ff-only, geração de `AGENTS.md`, `.t0/*`, `.vscode/*`, `.kiro/*`.
 3. `bet start|use|detect|close` e `slice start`: cadeia de resolução (2.5), workspaces isolados com worktrees, nomes de branch, lookup de chave Jira.
 4. `context`: renderer com tetos duros (2.6), formatos `agents|delta|hook|subagent|json`, carimbo de frescor, leitura de `origin/main` via `git show`.
 5. `pr` e `pr check`: PR em draft com trailers, `--verify`, `pr-opened`; check que lê o change set só no KB e posta `t0/merge-order`.
@@ -523,7 +524,7 @@ $ t0 slice start PAY-130
 | 19 | Cloud agent rodou sem KB (setup steps desligados, MCP ausente) | Instrução "pare e diga KB indisponível". `t0 pr check` avisa sem `KB-Context` | Corrigir a config do repo. Conferir com `t0 doctor --repo` |
 | 20 | Conteúdo sensível no KB (transcrição sem redação) | Transcrição só pela raia de conhecimento com revisão humana. Secret scan do `kb-check`. Push protection do GitHub **(verificar)** | Revert e purga pelo processo do banco |
 | 21 | Workspaces isolados acumulando | `ws status` lista os de bets `shipped` ou `killed` | `t0 bet close` |
-| 22 | Plugin ausente ou desligado numa máquina | Managed settings tornam obrigatório. Sem ele, o AGENTS.md ainda entrega o card (camada 1), e o doctor aponta | `t0 install --user` |
+| 22 | Plugin ausente ou desligado numa máquina | Managed settings tornam obrigatório. Sem ele, o AGENTS.md ainda entrega o card (camada 1), e o doctor aponta | `t0 install` |
 
 ---
 

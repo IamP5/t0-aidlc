@@ -66,18 +66,36 @@ O manifesto não fixa revisão: a bet sempre parte da branch padrão de cada rep
 
 ## Montando o workspace
 
-O padrão prevê o comando `t0 ws init <produto>`. Ele lê o manifesto, liga o KB, clona os repos como irmãos, pula os repos que derem 403 e gera o `AGENTS.md`. A CLI atual ainda não tem o clone automático, porque ele depende de detalhes do GHE do banco. Até lá, monte à mão.
+Na primeira vez, clone o repo do t0 e rode o instalador com o remote do KB:
 
-Uma vez por máquina, clone o KB e diga ao `t0` onde ele está:
+```
+git clone git@github.example.bank:t0/t0-aidlc.git && cd t0-aidlc
+./install.sh --kb git@github.example.bank:t0/t0-kb.git
+```
+
+O `install.sh` precisa de `python3` 3.11 ou mais novo e de `git`. Ele instala a CLI com `uv` ou `pipx` e chama o `t0 install`. O `t0 install` faz o resto, nesta ordem:
+
+- grava `~/.t0/config.yaml` com `handle`, `kb`, `kb_remote` e `ws_root`, todos em caminho absoluto, e mantém as outras chaves. Com o `gh` no PATH e sem `forge` no config, grava também `forge: github:<dono>/<repo>` a partir do remote do KB;
+- clona o KB em `~/kb`, se ainda não houver um KB no `kb` do config;
+- instala o plugin no Claude Code (`claude plugin marketplace add` e `claude plugin install t0@t0-aidlc`), se o `claude` estiver no PATH;
+- junta em `~/.claude/settings.json` os `additionalDirectories` de `~/ws`, `~/kb` e `~/kb.wt` e o `instructionFiles`, sem mexer nas outras chaves;
+- roda o `t0 ws init` para cada produto dos `pods` do seu arquivo em `team/people/<handle>.md`, ou para cada `--product` que você passar.
+
+Rodar de novo não muda nada. O `t0 install --check` mostra o que falta e sai com 1 se houver pendência.
+
+Para montar o workspace de outro produto depois:
+
+```
+t0 ws init exemplo
+```
+
+O comando lê o manifesto e cria `~/ws/exemplo/`. Ele liga `kb` ao clone do config e clona cada repo como irmão. Um repo que falha no clone, por exemplo com 403, entra em `absent` no `.t0/workspace.json`, e os outros seguem. Depois ele gera o `AGENTS.md` e o `.t0/env.sh`. Rodar de novo só clona o que falta e atualiza os arquivos gerados. O comando não roda o `t0 setup` nos repos, porque isso é um commit no repo. Ele lista os repos sem o bloco t0 no `AGENTS.md`.
+
+Se precisar montar à mão:
 
 ```
 git clone git@github.example.bank:t0/t0-kb.git ~/kb
-echo "kb: ~/kb" >> ~/.t0/config.yaml
-```
-
-Depois, em cada workspace:
-
-```
+echo "kb: $HOME/kb" >> ~/.t0/config.yaml
 mkdir -p ~/ws/exemplo && cd ~/ws/exemplo
 ln -s ~/kb kb
 git clone git@github.example.bank:t0/status-bot.git status-bot
@@ -180,7 +198,7 @@ O contexto chega em três camadas. A primeira, sozinha, já garante que o agente
 
 ### Claude Code
 
-- O `AGENTS.md` da raiz carrega como arquivo ancestral, mesmo quando a sessão abre dentro de `api/`. Os repos têm `CLAUDE.md` ponteiro, e um `CLAUDE.md` desliga a leitura de `AGENTS.md`. Por isso, a config de usuário precisa de `instructionFiles: claude-md-and-agents-md`. O `t0 doctor` confere essa config.
+- O `AGENTS.md` da raiz carrega como arquivo ancestral, mesmo quando a sessão abre dentro de `api/`. Os repos têm `CLAUDE.md` ponteiro, e um `CLAUDE.md` desliga a leitura de `AGENTS.md`. Por isso, a config de usuário precisa de `instructionFiles: claude-md-and-agents-md`. O `t0 install` grava essa config em `~/.claude/settings.json`, e o `t0 doctor` confere.
 - Hooks do plugin: SessionStart (`startup`, `resume`, `clear`, `compact`) roda o delta. SubagentStart dá o card de subagente, porque o subagente nasce sem memória. UserPromptSubmit avisa quando você cita a chave de outra bet. PreToolUse aplica as travas. Stop empurra os registros pendentes.
 - As skills do plugin aparecem como `/t0:<nome>`.
 
