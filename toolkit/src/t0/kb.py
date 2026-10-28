@@ -19,7 +19,7 @@ import yaml
 
 from . import gates as G
 from . import write as W
-from .check import CheckInput, Level, Report, Severity, check as run_check
+from .check import CheckInput, Level, Report, Severity, check as run_check, kind_problem
 from .context import Card, CardFormat, ResolvedBet, Section, parse_stamp, render as render_card
 from .okf.document import Actor, BundlePath, Document, ParseError, actor, dump, parse, section
 from .profile.spec import EventKind, Lane, StateOwner, TypeSpec
@@ -27,6 +27,9 @@ from .profile.table import ACCEPTANCE, RAPIDA_SLICE_BODY, REGISTRY, VERIFY
 from .render import materialize, set_keys
 from .view import Concept, Ref, View, bet_folder, fold
 from .write import Applied, ApplyMode, KnowledgeChange, Plan, Refusal, RenderedDoc
+
+# Keys t0 always writes itself; `--set` refuses them.
+T0_KEYS = ("type", "uid", "state", "status", "verified", "generated")
 
 UNAVAILABLE = "KB indisponível: rode `t0 ws sync` ou passe --kb. Pare."
 _SEQ = {"Idea": r"ideas/IDEA-(\d+)", "Bet": r"/bets/BET-(\d+)/", "ADR": r"adr/ADR-(\d+)", "Harness Item": r"harness/HI-(\d+)"}
@@ -293,15 +296,20 @@ class KB:
 
     def _sets(self, spec: TypeSpec, sets: Sequence[str]) -> dict[str, Any] | Refusal:
         names = {f.name: f for f in REGISTRY.fields(spec)}
+        states = tuple(spec.states.status_of) if spec.states else ()
         out: dict[str, Any] = {}
         bad = []
         for s in sets:
             k, sep, v = s.partition("=")
             k = k.strip()
-            if not sep or k not in names or names[k].derived or k in ("type", "uid", "state", "status", "verified"):
+            if not sep or k not in names or names[k].derived or k in T0_KEYS:
                 bad.append(f"--set {s}: `{k}` não é chave editável de {spec.name} (veja `t0 new {spec.slug} --help`)")
                 continue
-            out[k] = _yaml_value(v)
+            val = _yaml_value(v)
+            if (prob := kind_problem(names[k], val, states if k == "state" else ())):
+                bad.append(f"--set {s}: `{k}` precisa ser {prob}")
+                continue
+            out[k] = val
         return Refusal(tuple(bad)) if bad else out
 
     def _upd(self, c: Concept, updates: Mapping[str, Any], body_append: str = "") -> RenderedDoc:

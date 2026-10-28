@@ -65,3 +65,9 @@ One line per issue found by running the skills against the eval KB (`plugin/eval
 | 37 | bet-kill | the grader expected an immediate kill; the kill rightly waits as a KB branch for the Bet Owner | fixed in case |
 
 ## Round 6 (21 cases, 2 runs each, Opus judge): 21/21 pass both runs, $28.86. Loop stopped.
+
+## Round 7 (21 cases, 1 run, kept workspaces; 21/21 pass, $14.58)
+
+| # | Found by | Issue | Status |
+|---|---|---|---|
+| 38 | unified KB (`kb check` over all cases) | slice-verify passed `--set generated=...` with a space-separated date; `t0 new` wrote it, and `t0 new --help` listed `generated` as obrigatória | fixed: `--set` refuses t0-owned keys (`T0_KEYS`, incl. `generated`) and checks each value's kind; help marks them "o t0 escreve". Graders still do not run `kb check` on agent branches |

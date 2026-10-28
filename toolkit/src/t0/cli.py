@@ -505,12 +505,13 @@ def cmd_doctor(a: argparse.Namespace) -> int:
 
 
 def _fields_help(slug: str) -> str:
+    from .kb import T0_KEYS
     spec = REGISTRY.type_for_slug(slug)
     lines = [f"Chaves de {spec.name} (defina com --set chave=valor; derivadas o t0 escreve):"]
     for f in REGISTRY.fields(spec):
         if f.name in ("type",):
             continue
-        tag = "derivada" if f.derived else ("obrigatória" if f.required else "opcional")
+        tag = "o t0 escreve" if f.derived or f.name in T0_KEYS else ("obrigatória" if f.required else "opcional")
         enum = f" [{'|'.join(f.enum)}]" if f.enum else ""
         lines.append(f"  {f.name:<16} {f.kind.value}{enum}, {tag}" + (f": {f.doc_pt}" if f.doc_pt else ""))
     if spec.states:

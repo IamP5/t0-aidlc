@@ -160,6 +160,16 @@ def test_set_rejects_unknown_and_derived_keys(tmp_path):
     assert isinstance(r, Refusal) and len(r.reasons_pt) == 2
 
 
+def test_set_refuses_provenance_and_malformed_values(tmp_path):
+    kb = build(tmp_path)
+    r = KB.open(kb).new("harness", title="x", pattern="p", occurrence="o",
+                        sets=["generated={by: claude-code/opus-5.5, at: 2026-10-28 09:30:00-03:00}", "owner=ninguém"])
+    assert isinstance(r, Refusal) and len(r.reasons_pt) == 2
+    assert "`owner` precisa ser" in r.reasons_pt[1]
+    assert not isinstance(KB.open(kb).new("harness", title="x", pattern="p", occurrence="o",
+                                          sets=["owner=role:harness-keeper"]), Refusal)
+
+
 def test_dry_run_neither_switches_nor_writes(tmp_path):
     kb = build(tmp_path)
     res = KB.open(kb, dry=True).new("idea", title="x")

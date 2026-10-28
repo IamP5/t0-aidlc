@@ -196,7 +196,7 @@ def _required(inp: CheckInput) -> Iterable[Finding]:
             yield _err("L1.required-fields", d.path.value, f"{spec.name} exige `stale_after`")
 
 
-def _kind_problem(f: Field, v: Any, states: tuple[str, ...]) -> str | None:
+def kind_problem(f: Field, v: Any, states: tuple[str, ...]) -> str | None:
     k = f.kind
     if k in (Kind.STR, Kind.TEXT, Kind.PATH):
         if not isinstance(v, str):
@@ -241,7 +241,7 @@ def _field_kind(inp: CheckInput) -> Iterable[Finding]:
             v = d.frontmatter.get(f.name)
             if v is None:
                 continue
-            prob = _kind_problem(f, v, states if f.name == "state" else ())
+            prob = kind_problem(f, v, states if f.name == "state" else ())
             if prob:
                 yield _err("L1.field-kind", d.path.value, f"`{f.name}` precisa ser {prob}; está {v!r}"[:300])
         g = d.frontmatter.get("generated")
